@@ -1,3 +1,4 @@
+import { SwiftMockData } from 'pages/Portfolio/hooks/useSwiftMockData'
 import {
   MAX_ACTIVITY_ROWS,
   MAX_LIMITS_ROWS,
@@ -18,12 +19,14 @@ interface PortfolioOverviewTablesProps {
   activityData: ActivityRenderData
   chainId: UniverseChainId | undefined
   portfolioAddresses: { evmAddress: Address | undefined; svmAddress: Address | undefined }
+  swiftMockData?: SwiftMockData | null
 }
 
 export const PortfolioOverviewTables = memo(function PortfolioOverviewTables({
   activityData,
   chainId,
   portfolioAddresses,
+  swiftMockData,
 }: PortfolioOverviewTablesProps) {
   return (
     <Flex
@@ -37,7 +40,7 @@ export const PortfolioOverviewTables = memo(function PortfolioOverviewTables({
       $xl={{ flexDirection: 'column-reverse' }}
     >
       <Flex gap="$spacing40" grow shrink $xl={{ width: '100%' }}>
-        <MiniTokensTable maxTokens={MAX_TOKENS_ROWS} chainId={chainId} />
+        <MiniTokensTable maxTokens={MAX_TOKENS_ROWS} chainId={chainId} swiftMockData={swiftMockData} />
         {portfolioAddresses.evmAddress && (
           <MiniPoolsTable account={portfolioAddresses.evmAddress} maxPools={MAX_POOLS_ROWS} chainId={chainId} />
         )}
@@ -46,7 +49,11 @@ export const PortfolioOverviewTables = memo(function PortfolioOverviewTables({
         {portfolioAddresses.evmAddress && (!chainId || chainId === UniverseChainId.Mainnet) && (
           <OpenLimitsTable account={portfolioAddresses.evmAddress} maxLimits={MAX_LIMITS_ROWS} />
         )}
-        <MiniActivityTable maxActivities={MAX_ACTIVITY_ROWS} activityData={activityData} />
+        <MiniActivityTable
+          maxActivities={MAX_ACTIVITY_ROWS}
+          activityData={activityData}
+          swiftMockData={swiftMockData}
+        />
       </Flex>
     </Flex>
   )

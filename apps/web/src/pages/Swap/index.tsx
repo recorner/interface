@@ -9,6 +9,7 @@ import { useAccount } from 'hooks/useAccount'
 import { useDeferredComponent } from 'hooks/useDeferredComponent'
 import { PageType, useIsPage } from 'hooks/useIsPage'
 import { useModalState } from 'hooks/useModalState'
+import { SwiftConvertTab } from 'pages/Swap/SwiftConvertTab'
 import { useResetOverrideOneClickSwapFlag } from 'pages/Swap/settings/OneClickSwap'
 import { useWebSwapSettings } from 'pages/Swap/settings/useWebSwapSettings'
 import { TDPContext } from 'pages/TokenDetails/TDPContext'
@@ -214,7 +215,7 @@ export function Swap({
   )
 }
 
-const SWAP_TABS = [SwapTab.Swap, SwapTab.Limit, SwapTab.Buy, SwapTab.Sell]
+const SWAP_TABS = [SwapTab.Swap, SwapTab.Limit, SwapTab.Buy, SwapTab.Sell, SwapTab.Convert]
 
 const TAB_TYPE_TO_LABEL = {
   [SwapTab.Swap]: (t: AppTFunction) => t('swap.form.header'),
@@ -222,6 +223,7 @@ const TAB_TYPE_TO_LABEL = {
   [SwapTab.Send]: (t: AppTFunction) => t('send.title'),
   [SwapTab.Buy]: (t: AppTFunction) => t('common.buy.label'),
   [SwapTab.Sell]: (t: AppTFunction) => t('common.sell.label'),
+  [SwapTab.Convert]: (t: AppTFunction) => t('common.convert'),
 }
 
 const PATHNAME_TO_TAB: { [key: string]: SwapTab } = {
@@ -229,6 +231,7 @@ const PATHNAME_TO_TAB: { [key: string]: SwapTab } = {
   '/limit': SwapTab.Limit,
   '/buy': SwapTab.Buy,
   '/sell': SwapTab.Sell,
+  '/convert': SwapTab.Convert,
 }
 
 function UniversalSwapFlow({
@@ -376,6 +379,7 @@ function UniversalSwapFlow({
           initialCurrency={tdpCurrency ?? prefilledState?.output}
         />
       )}
+      {currentTab === SwapTab.Convert && <SwiftConvertTab />}
     </Flex>
   )
 }

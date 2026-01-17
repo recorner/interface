@@ -8,7 +8,9 @@ import { TimeCell } from 'pages/Portfolio/Activity/ActivityTable/TimeCell'
 import { filterTransactionDetailsFromActivityItems } from 'pages/Portfolio/Activity/Filters/utils'
 import { PORTFOLIO_TABLE_ROW_HEIGHT } from 'pages/Portfolio/constants'
 import { usePortfolioRoutes } from 'pages/Portfolio/Header/hooks/usePortfolioRoutes'
+import { SwiftMockData } from 'pages/Portfolio/hooks/useSwiftMockData'
 import { MAX_ACTIVITY_ROWS } from 'pages/Portfolio/Overview/constants'
+import { SwiftMiniActivityTable } from 'pages/Portfolio/Overview/SwiftMiniActivityTable'
 import { TableSectionHeader } from 'pages/Portfolio/Overview/TableSectionHeader'
 import { ViewAllButton } from 'pages/Portfolio/Overview/ViewAllButton'
 import { memo, useCallback, useMemo, useState } from 'react'
@@ -29,12 +31,31 @@ import { ONE_DAY_MS } from 'utilities/src/time/time'
 interface MiniActivityTableProps {
   maxActivities?: number
   activityData: ActivityRenderData
+  swiftMockData?: SwiftMockData | null
 }
 
 export const MiniActivityTable = memo(function MiniActivityTable({
   maxActivities = 5,
   activityData,
+  swiftMockData,
 }: MiniActivityTableProps) {
+  // If Swift mock data is provided, use the Swift version of the table
+  if (swiftMockData) {
+    return <SwiftMiniActivityTable swiftMockData={swiftMockData} maxActivities={maxActivities} />
+  }
+
+  return <MiniActivityTableInner maxActivities={maxActivities} activityData={activityData} />
+})
+
+interface MiniActivityTableInnerProps {
+  maxActivities: number
+  activityData: ActivityRenderData
+}
+
+const MiniActivityTableInner = memo(function MiniActivityTableInner({
+  maxActivities,
+  activityData,
+}: MiniActivityTableInnerProps) {
   const { t } = useTranslation()
   const trace = useTrace()
   const { chainId } = usePortfolioRoutes()

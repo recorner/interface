@@ -2,6 +2,8 @@ import { BuyActionTile } from 'components/ActionTiles/BuyActionTile'
 import { MoreActionTile } from 'components/ActionTiles/MoreActionTile'
 import { SendActionTile } from 'components/ActionTiles/SendActionTile/SendActionTile'
 import { SwapActionTile } from 'components/ActionTiles/SwapActionTile'
+import { SwiftSendActionTile } from 'pages/Portfolio/components/SwiftSendActionTile'
+import { useSwiftConnection } from 'pages/Portfolio/hooks/useSwiftConnection'
 import { OVERVIEW_RIGHT_COLUMN_WIDTH } from 'pages/Portfolio/Overview/constants'
 import { memo } from 'react'
 import { Flex, styled, useMedia } from 'ui/src'
@@ -40,6 +42,7 @@ const ActionTileWrapper = styled(Flex, {
 
 export const OverviewActionTiles = memo(function OverviewActionTiles() {
   const media = useMedia()
+  const { isSwiftConnected } = useSwiftConnection()
   const isSingleRow = !!media.xl && !media.md
 
   return (
@@ -51,7 +54,7 @@ export const OverviewActionTiles = memo(function OverviewActionTiles() {
         <BuyActionTile padding="$spacing16" />
       </ActionTileWrapper>
       <ActionTileWrapper singleRow={isSingleRow}>
-        <SendActionTile padding="$spacing16" />
+        {isSwiftConnected ? <SwiftSendActionTile padding="$spacing16" /> : <SendActionTile padding="$spacing16" />}
       </ActionTileWrapper>
       <ActionTileWrapper singleRow={isSingleRow}>
         <MoreActionTile padding="$spacing16" />

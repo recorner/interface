@@ -15,10 +15,12 @@ import {
   useIsSessionServiceEnabled,
 } from '@universe/gating'
 import { createChallengeSolverService, createSessionInitializationService } from '@universe/sessions'
+import { IPAccessGate } from 'components/IPAccessGate'
 import { QueryClientPersistProvider } from 'components/PersistQueryClient'
 import { createWeb3Provider, WalletCapabilitiesEffects } from 'components/Web3Provider/createWeb3Provider'
 import { WebUniswapProvider } from 'components/Web3Provider/WebUniswapContext'
 import { wagmiConfig } from 'components/Web3Provider/wagmiConfig'
+import { IPAccessProvider } from 'contexts/IPAccessContext'
 import { AccountsStoreDevTool } from 'features/accounts/store/devtools'
 import { WebAccountsStoreProvider } from 'features/accounts/store/provider'
 import { ConnectWalletMutationProvider } from 'features/wallet/connection/hooks/useConnectWalletMutation'
@@ -204,7 +206,11 @@ const RootApp = (): JSX.Element => {
                                             <PortalProvider>
                                               <WebNotificationServiceManager />
                                               <ThemedGlobalStyle />
-                                              <App />
+                                              <IPAccessProvider>
+                                                <IPAccessGate>
+                                                  <App />
+                                                </IPAccessGate>
+                                              </IPAccessProvider>
                                             </PortalProvider>
                                           </TamaguiProvider>
                                         </ThemeProvider>

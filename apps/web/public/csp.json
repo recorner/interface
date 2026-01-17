@@ -29,6 +29,8 @@
     "'self'",
     "blob:",
     "data:",
+    "https://api.uniswap.services",
+    "https://uniswap-proxy.shadrackmacharia2002.workers.dev",
     "https://*.alchemy.com",
     "https://*.arbitrum.io",
     "https://*.base.org/",

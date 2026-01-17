@@ -10,8 +10,10 @@ import {
   getTransactionTypesForFilter,
 } from 'pages/Portfolio/Activity/Filters/utils'
 import { PaginationSkeletonRow } from 'pages/Portfolio/Activity/PaginationSkeletonRow'
+import { SwiftActivityTable } from 'pages/Portfolio/Activity/SwiftActivityTable'
 import { usePortfolioRoutes } from 'pages/Portfolio/Header/hooks/usePortfolioRoutes'
 import { usePortfolioAddresses } from 'pages/Portfolio/hooks/usePortfolioAddresses'
+import { useSwiftMockData } from 'pages/Portfolio/hooks/useSwiftMockData'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
@@ -71,6 +73,7 @@ export default function PortfolioActivity() {
   const [selectedTransactionType, setSelectedTransactionType] = useState('all')
   const [selectedTimePeriod, setSelectedTimePeriod] = useState('all')
   const [selectedTransaction, setSelectedTransaction] = useState<TransactionDetails | null>(null)
+  const swiftMockData = useSwiftMockData()
 
   const { evmAddress, svmAddress } = usePortfolioAddresses()
   const { chainId } = usePortfolioRoutes()
@@ -175,6 +178,29 @@ export default function PortfolioActivity() {
       />
     )
   }, [handleShowAllNetworks, chainId, t])
+
+  // If Swift mock data is available, render Swift-specific activity table
+  if (swiftMockData) {
+    return (
+      <Trace logImpression page={InterfacePageName.PortfolioActivityPage}>
+        <Flex gap="$spacing28" mt="$spacing12">
+          <Trace section={SectionName.PortfolioActivityTab} element={ElementName.ActivityFilters}>
+            <ActivityFilters
+              selectedTransactionType={selectedTransactionType}
+              onTransactionTypeChange={setSelectedTransactionType}
+              selectedTimePeriod={selectedTimePeriod}
+              onTimePeriodChange={setSelectedTimePeriod}
+            />
+          </Trace>
+          <Flex>
+            <Trace section={SectionName.PortfolioActivityTab} element={ElementName.PortfolioActivityTable}>
+              <SwiftActivityTable swiftMockData={swiftMockData} />
+            </Trace>
+          </Flex>
+        </Flex>
+      </Trace>
+    )
+  }
 
   return (
     <Trace logImpression page={InterfacePageName.PortfolioActivityPage}>

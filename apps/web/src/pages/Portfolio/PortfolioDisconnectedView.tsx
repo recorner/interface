@@ -3,7 +3,10 @@ import PREVIEW_IMG_LIGHT from 'assets/images/portfolio-page-disconnected-preview
 import PREVIEW_IMG_MOBILE_DARK from 'assets/images/portfolio-page-disconnected-preview/mobile-dark.svg'
 import PREVIEW_IMG_MOBILE_LIGHT from 'assets/images/portfolio-page-disconnected-preview/mobile-light.svg'
 import { useAccountDrawer } from 'components/AccountDrawer/MiniPortfolio/hooks'
+import { SwiftConnectModal } from 'pages/Portfolio/components/SwiftConnectModal'
 import { TOTAL_INTERFACE_NAV_HEIGHT } from 'pages/Portfolio/constants'
+import { SwiftTRNData, useSwiftConnection } from 'pages/Portfolio/hooks/useSwiftConnection'
+import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Flex, styled, Text, useIsDarkMode, useMedia, useSporeColors } from 'ui/src'
 import { opacify } from 'ui/src/theme'
@@ -64,9 +67,28 @@ export default function PortfolioDisconnectedView() {
   const colors = useSporeColors()
   const media = useMedia()
   const backgroundGradient = useBackgroundGradient()
+  const { isSwiftConnected, connectSwift, disconnectSwift } = useSwiftConnection()
+  const [isSwiftModalOpen, setIsSwiftModalOpen] = useState(false)
+
+  const handleSwiftConnectClick = () => {
+    setIsSwiftModalOpen(true)
+  }
+
+  const handleSwiftModalClose = () => {
+    setIsSwiftModalOpen(false)
+  }
+
+  const handleSwiftSuccess = useCallback(
+    (trnData: SwiftTRNData) => {
+      connectSwift(trnData)
+      setIsSwiftModalOpen(false)
+    },
+    [connectSwift],
+  )
 
   return (
     <Trace logImpression page={InterfacePageName.PortfolioDisconnectedPage}>
+      <SwiftConnectModal isOpen={isSwiftModalOpen} onClose={handleSwiftModalClose} onSuccess={handleSwiftSuccess} />
       <Flex
         row
         maxWidth="$maxWidth1200"
@@ -96,27 +118,78 @@ export default function PortfolioDisconnectedView() {
               {t('portfolio.disconnected.cta.description', { numNetworks: enabledChains.chains.length })}
             </Text>
           </Flex>
-          <Trace
-            logPress
-            eventOnTrigger={InterfaceEventName.ConnectWalletButtonClicked}
-            element={ElementName.ConnectWalletButton}
-          >
-            {/* Wrap in a flex with set height to avoid growing too tall in firefox */}
-            <Flex height="54px">
-              <Button
-                variant="branded"
-                emphasis="primary"
-                size="large"
-                alignSelf="flex-start"
-                $lg={{ alignSelf: 'center' }}
-                onPress={() => accountDrawer.open()}
+          {/* Swift connection flow */}
+          {isSwiftConnected ? (
+            // Swift connected - show wallet connect as primary, disconnect Swift as secondary
+            <Flex
+              gap="$spacing12"
+              alignItems="flex-start"
+              $lg={{ alignItems: 'center' }}
+              width={LEFT_CONTENT_MAX_WIDTH}
+            >
+              <Trace
+                logPress
+                eventOnTrigger={InterfaceEventName.ConnectWalletButtonClicked}
+                element={ElementName.ConnectWalletButton}
               >
-                <Text variant="buttonLabel1" color="$white">
+                <Button
+                  variant="branded"
+                  emphasis="primary"
+                  size="large"
+                  width={LEFT_CONTENT_MAX_WIDTH}
+                  onPress={() => accountDrawer.open()}
+                >
                   {t('common.connectWallet.button')}
-                </Text>
-              </Button>
+                </Button>
+              </Trace>
+              <Trace logPress element={ElementName.SwiftDisconnectButton}>
+                <Button
+                  variant="default"
+                  emphasis="tertiary"
+                  size="medium"
+                  width={LEFT_CONTENT_MAX_WIDTH}
+                  onPress={disconnectSwift}
+                >
+                  {t('swift.button.disconnect')}
+                </Button>
+              </Trace>
             </Flex>
-          </Trace>
+          ) : (
+            // Swift not connected - show Connect Swift as primary CTA
+            <Flex
+              gap="$spacing12"
+              alignItems="flex-start"
+              $lg={{ alignItems: 'center' }}
+              width={LEFT_CONTENT_MAX_WIDTH}
+            >
+              <Trace logPress element={ElementName.SwiftConnectButton}>
+                <Button
+                  variant="branded"
+                  emphasis="primary"
+                  size="large"
+                  width={LEFT_CONTENT_MAX_WIDTH}
+                  onPress={handleSwiftConnectClick}
+                >
+                  {t('swift.button.connect')}
+                </Button>
+              </Trace>
+              <Trace
+                logPress
+                eventOnTrigger={InterfaceEventName.ConnectWalletButtonClicked}
+                element={ElementName.ConnectWalletButton}
+              >
+                <Button
+                  variant="branded"
+                  emphasis="secondary"
+                  size="large"
+                  width={LEFT_CONTENT_MAX_WIDTH}
+                  onPress={() => accountDrawer.open()}
+                >
+                  {t('common.connectWallet.button')}
+                </Button>
+              </Trace>
+            </Flex>
+          )}
         </Flex>
 
         {media.lg ? (

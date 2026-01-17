@@ -8,11 +8,16 @@ function isAppUniswapStagingOrg({ hostname }: { hostname: string }): boolean {
   return hostname === 'app.corn-staging.com'
 }
 
+function isUniswapServices({ hostname }: { hostname: string }): boolean {
+  return hostname === 'uniswap.services' || hostname === 'www.uniswap.services'
+}
+
 export function isBrowserRouterEnabled(): boolean {
   if (isProdEnv()) {
     if (
       isAppUniswapOrg(window.location) ||
       isAppUniswapStagingOrg(window.location) ||
+      isUniswapServices(window.location) ||
       isLocalhost(window.location) // playwright tests
     ) {
       return true

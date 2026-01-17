@@ -5,6 +5,7 @@ import { AppLayout } from 'pages/App/Layout'
 import { ResetPageScrollEffect } from 'pages/App/utils/ResetPageScroll'
 import { UserPropertyUpdater } from 'pages/App/utils/UserPropertyUpdater'
 import { useDynamicMetatags } from 'pages/metatags'
+import { GlobalMaintenanceMode } from 'pages/Portfolio/components/MaintenanceMode'
 import { findRouteByPath } from 'pages/RouteDefinitions'
 import { useEffect, useLayoutEffect } from 'react'
 import { Helmet } from 'react-helmet-async/lib/index'
@@ -83,6 +84,7 @@ export default function App() {
         </Helmet>
         <UserPropertyUpdater />
         <ResetPageScrollEffect />
+        <GlobalMaintenanceMode />
         {shouldOverridePageLayout ? <Body shouldRenderAppChrome={false} /> : <AppLayout />}
       </Trace>
     </ErrorBoundary>

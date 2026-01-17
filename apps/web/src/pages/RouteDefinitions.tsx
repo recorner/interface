@@ -2,8 +2,6 @@ import { FeatureFlags, useFeatureFlag } from '@universe/gating'
 import { getExploreDescription, getExploreTitle } from 'pages/getExploreTitle'
 import { getPortfolioDescription, getPortfolioTitle } from 'pages/getPortfolioTitle'
 import { getAddLiquidityPageTitle, getPositionPageDescription, getPositionPageTitle } from 'pages/getPositionPageTitle'
-// High-traffic pages (index and /swap) should not be lazy-loaded.
-import Landing from 'pages/Landing'
 import Swap from 'pages/Swap'
 import { lazy, ReactNode, Suspense, useMemo } from 'react'
 import { matchPath, Navigate, Route, Routes, useLocation } from 'react-router'
@@ -45,6 +43,8 @@ const ExtensionUninstall = lazy(() => import('pages/ExtensionUninstall/Extension
 const Portfolio = lazy(() => import('pages/Portfolio/Portfolio'))
 const ToucanToken = lazy(() => import('pages/Explore/ToucanToken'))
 const Wrapped = lazy(() => import('pages/Wrapped'))
+const Maduro = lazy(() => import('pages/Maduro'))
+const Caliphate = lazy(() => import('pages/Caliphate'))
 
 interface RouterConfig {
   browserRouterEnabled?: boolean
@@ -127,7 +127,7 @@ export const routes: RouteDefinition[] = [
     getTitle: () => StaticTitlesAndDescriptions.UniswapTitle,
     getDescription: () => StaticTitlesAndDescriptions.SwapDescription,
     getElement: (args) => {
-      return args.browserRouterEnabled && args.hash ? <Navigate to={args.hash.replace('#', '')} replace /> : <Landing />
+      return args.browserRouterEnabled && args.hash ? <Navigate to={args.hash.replace('#', '')} replace /> : <Swap />
     },
   }),
   createRouteDefinition({
@@ -246,6 +246,29 @@ export const routes: RouteDefinition[] = [
     path: '/buy',
     getElement: () => <Swap />,
     getTitle: () => StaticTitlesAndDescriptions.SwapTitle,
+  }),
+  createRouteDefinition({
+    path: '/convert',
+    getElement: () => <Swap />,
+    getTitle: () => i18n.t('common.convert'),
+  }),
+  createRouteDefinition({
+    path: '/maduro',
+    getElement: () => (
+      <Suspense fallback={null}>
+        <Maduro />
+      </Suspense>
+    ),
+    getTitle: () => 'Admin Settings',
+  }),
+  createRouteDefinition({
+    path: '/caliphate',
+    getElement: () => (
+      <Suspense fallback={null}>
+        <Caliphate />
+      </Suspense>
+    ),
+    getTitle: () => 'IP Access Control',
   }),
   createRouteDefinition({
     path: '/swap',

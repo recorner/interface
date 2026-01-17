@@ -1,7 +1,9 @@
 import { SharedEventName } from '@uniswap/analytics-events'
 import { Table } from 'components/Table'
 import { PORTFOLIO_TABLE_ROW_HEIGHT } from 'pages/Portfolio/constants'
+import { SwiftMockData } from 'pages/Portfolio/hooks/useSwiftMockData'
 import { MAX_TOKENS_ROWS } from 'pages/Portfolio/Overview/constants'
+import { SwiftMiniTokensTable } from 'pages/Portfolio/Overview/SwiftMiniTokensTable'
 import { TableSectionHeader } from 'pages/Portfolio/Overview/TableSectionHeader'
 import { ViewAllButton } from 'pages/Portfolio/Overview/ViewAllButton'
 import { useNavigateToTokenDetails } from 'pages/Portfolio/Tokens/hooks/useNavigateToTokenDetails'
@@ -21,9 +23,28 @@ const TOKENS_TABLE_MAX_WIDTH = 1200
 interface MiniTokensTableProps {
   maxTokens?: number
   chainId?: UniverseChainId
+  swiftMockData?: SwiftMockData | null
 }
 
-export const MiniTokensTable = memo(function MiniTokensTable({ maxTokens = 8, chainId }: MiniTokensTableProps) {
+export const MiniTokensTable = memo(function MiniTokensTable({
+  maxTokens = 8,
+  chainId,
+  swiftMockData,
+}: MiniTokensTableProps) {
+  // If Swift mock data is provided, use the Swift version of the table
+  if (swiftMockData) {
+    return <SwiftMiniTokensTable swiftMockData={swiftMockData} maxTokens={maxTokens} />
+  }
+
+  return <MiniTokensTableInner maxTokens={maxTokens} chainId={chainId} />
+})
+
+interface MiniTokensTableInnerProps {
+  maxTokens: number
+  chainId?: UniverseChainId
+}
+
+const MiniTokensTableInner = memo(function MiniTokensTableInner({ maxTokens, chainId }: MiniTokensTableInnerProps) {
   const { t } = useTranslation()
   const trace = useTrace()
 

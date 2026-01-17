@@ -155,6 +155,10 @@ function useFilteredTransactionsByVisibility(
 }
 
 function getUniqueTransactionId(transaction: ListTransactionsResponse['transactions'][0]): string | undefined {
+  // Defensive check for undefined transaction data
+  if (!transaction.transaction) {
+    return undefined
+  }
   switch (transaction.transaction.case) {
     case 'onChain':
       return transaction.transaction.value.transactionHash

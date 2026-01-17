@@ -21,6 +21,78 @@ import { useCurrentLocale } from 'uniswap/src/features/language/hooks'
 import { useLocalizationContext } from 'uniswap/src/features/language/LocalizationContext'
 import { NumberType } from 'utilities/src/format/types'
 
+// Generate mock chart data for Swift connection
+function generateSwiftMockChartData(balance: number, period: ChartPeriod): PriceChartData[] {
+  const now = Math.floor(Date.now() / 1000)
+  const points: PriceChartData[] = []
+
+  // Determine time range based on period
+  let numPoints: number
+  let intervalSeconds: number
+
+  switch (period) {
+    case ChartPeriod.HOUR:
+      numPoints = 60
+      intervalSeconds = 60 // 1 minute
+      break
+    case ChartPeriod.DAY:
+      numPoints = 96
+      intervalSeconds = 900 // 15 minutes
+      break
+    case ChartPeriod.WEEK:
+      numPoints = 168
+      intervalSeconds = 3600 // 1 hour
+      break
+    case ChartPeriod.MONTH:
+      numPoints = 30
+      intervalSeconds = 86400 // 1 day
+      break
+    case ChartPeriod.YEAR:
+      numPoints = 52
+      intervalSeconds = 604800 // 1 week
+      break
+    default:
+      numPoints = 96
+      intervalSeconds = 900
+  }
+
+  // Generate relatively stable chart with slight variations (steady growth)
+  const startBalance = balance * 0.92 // Start 8% lower
+  const variance = balance * 0.02 // 2% variance
+
+  for (let i = 0; i < numPoints; i++) {
+    const progress = i / (numPoints - 1)
+    // Smooth curve from start to current balance
+    const baseValue = startBalance + (balance - startBalance) * progress
+    // Add small random variation (deterministic based on index)
+    const seed = Math.sin(i * 12.9898) * 43758.5453
+    const variation = (seed - Math.floor(seed) - 0.5) * variance
+    const value = Math.max(0, baseValue + variation)
+
+    const time = (now - (numPoints - 1 - i) * intervalSeconds) as UTCTimestamp
+
+    points.push({
+      time,
+      value,
+      open: value,
+      high: value,
+      low: value,
+      close: value,
+    })
+  }
+
+  // Ensure last point is exactly the current balance
+  if (points.length > 0) {
+    points[points.length - 1].value = balance
+    points[points.length - 1].open = balance
+    points[points.length - 1].high = balance
+    points[points.length - 1].low = balance
+    points[points.length - 1].close = balance
+  }
+
+  return points
+}
+
 const ChartContainer = styled(Flex, {
   width: '100%',
 })
@@ -75,6 +147,7 @@ interface PortfolioChartProps {
   setSelectedPeriod: (period: ChartPeriod) => void
   portfolioTotalBalanceUSD?: number
   isTotalValueMatch: boolean
+  isSwiftConnected?: boolean
 }
 
 export function PortfolioChart({
@@ -86,6 +159,7 @@ export function PortfolioChart({
   selectedPeriod,
   setSelectedPeriod,
   isTotalValueMatch,
+  isSwiftConnected,
 }: PortfolioChartProps): JSX.Element {
   const { t } = useTranslation()
   const media = useMedia()
@@ -124,12 +198,24 @@ export function PortfolioChart({
     }))
   }, [selectedPeriod, t])
 
+  // Generate Swift mock chart data when Swift is connected
+  const swiftChartData = useMemo(() => {
+    if (!isSwiftConnected || !portfolioTotalBalanceUSD) {
+      return []
+    }
+    return generateSwiftMockChartData(portfolioTotalBalanceUSD, selectedPeriod)
+  }, [isSwiftConnected, portfolioTotalBalanceUSD, selectedPeriod])
+
   const chartData = useMemo(() => {
+    // Use Swift chart data if Swift is connected
+    if (isSwiftConnected && swiftChartData.length > 0) {
+      return swiftChartData
+    }
     if (!portfolioChartData?.points) {
       return []
     }
     return convertPortfolioChartDataToPriceChartData(portfolioChartData.points)
-  }, [portfolioChartData])
+  }, [isSwiftConnected, swiftChartData, portfolioChartData])
 
   // Determine color based on portfolio balance change
   const chartColor = useMemo(() => {
@@ -147,8 +233,10 @@ export function PortfolioChart({
     return colors.statusSuccess.val
   }, [chartData, colors])
 
-  const isLoading = isPending || !chartData.length
-  const isDisabled = isPortfolioZero || !!error
+  // Override loading/error state for Swift - we have our own data
+  const isLoading = isSwiftConnected ? false : isPending || !chartData.length
+  const hasError = isSwiftConnected ? false : !!error
+  const isDisabled = isPortfolioZero || hasError
 
   // Custom y-axis formatter that removes decimals
   const yAxisFormatter = useMemo(() => {
@@ -164,9 +252,12 @@ export function PortfolioChart({
     }
   }, [locale, appFiatCurrencyInfo.code])
 
+  // For Swift, we always want to show the chart with our mock data
+  const shouldShowChart = isSwiftConnected || (!isLoading && !hasError && !isPortfolioZero && !isChartEmpty)
+
   return (
     <Flex gap="$spacing16" grow shrink>
-      {error ? (
+      {hasError ? (
         <ChartContainer centered grow shrink>
           <ChartSkeleton
             type={ChartType.PRICE}
@@ -178,15 +269,15 @@ export function PortfolioChart({
         <ChartContainer centered grow shrink>
           <ChartSkeleton type={ChartType.PRICE} height={CHART_HEIGHT} />
         </ChartContainer>
-      ) : isPortfolioZero || isChartEmpty ? (
+      ) : !shouldShowChart ? (
         <Flex height={UNFUNDED_CHART_SKELETON_HEIGHT} position="relative">
           <Text variant="heading1" color="$neutral3">
-            {convertFiatAmountFormatted(0, NumberType.PortfolioBalance)}
+            {convertFiatAmountFormatted(portfolioTotalBalanceUSD ?? 0, NumberType.PortfolioBalance)}
           </Text>
           <Separator borderBottomWidth={3} borderColor="$surface3" position="absolute" top="60%" left="0" right="0" />
         </Flex>
       ) : (
-        <Flex pointerEvents={isTotalValueMatch ? 'auto' : 'none'}>
+        <Flex pointerEvents={isTotalValueMatch || isSwiftConnected ? 'auto' : 'none'}>
           <PriceChart
             data={chartData}
             height={CHART_HEIGHT}
@@ -195,7 +286,7 @@ export function PortfolioChart({
             timePeriod={chartPeriodToHistoryDuration(selectedPeriod)}
             overrideColor={chartColor}
             headerTotalValueOverride={portfolioTotalBalanceUSD}
-            hideYAxis={!isTotalValueMatch}
+            hideYAxis={!(isTotalValueMatch || isSwiftConnected)}
             yAxisFormatter={yAxisFormatter}
           />
         </Flex>

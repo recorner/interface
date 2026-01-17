@@ -1,5 +1,6 @@
 import { Layers, PortfolioDisconnectedDemoViewProperties, useExperimentValueFromLayer } from '@universe/gating'
 import { useScroll } from 'hooks/useScroll'
+import { MaintenanceMode } from 'pages/Portfolio/components/MaintenanceMode'
 import { CONNECT_WALLET_BANNER_HEIGHT, CONNECT_WALLET_FIXED_BOTTOM_SECTION_HEIGHT } from 'pages/Portfolio/constants'
 import useIsConnected from 'pages/Portfolio/Header/hooks/useIsConnected'
 import PortfolioDisconnectedView from 'pages/Portfolio/PortfolioDisconnectedView'
@@ -27,16 +28,18 @@ export default function Portfolio() {
   const isBannerVisible = useMemo(() => scrollY < BANNER_SCROLL_THRESHOLD, [scrollY])
 
   return (
-    <Trace logImpression page={InterfacePageName.PortfolioPage}>
-      {!demoDisconnectedViewEnabled && !isConnected ? (
-        <PortfolioDisconnectedView />
-      ) : showDemoDisconnectedView ? (
-        <Trace logImpression section={SectionName.PortfolioDisconnectedDemoView}>
-          <PortfolioPageInner scrollY={scrollY} isBannerVisible={isBannerVisible} mb={DEMO_BOTTOM_MARGIN} />
-        </Trace>
-      ) : (
-        <PortfolioPageInner scrollY={scrollY} isBannerVisible={isBannerVisible} />
-      )}
-    </Trace>
+    <MaintenanceMode>
+      <Trace logImpression page={InterfacePageName.PortfolioPage}>
+        {!demoDisconnectedViewEnabled && !isConnected ? (
+          <PortfolioDisconnectedView />
+        ) : showDemoDisconnectedView ? (
+          <Trace logImpression section={SectionName.PortfolioDisconnectedDemoView}>
+            <PortfolioPageInner scrollY={scrollY} isBannerVisible={isBannerVisible} mb={DEMO_BOTTOM_MARGIN} />
+          </Trace>
+        ) : (
+          <PortfolioPageInner scrollY={scrollY} isBannerVisible={isBannerVisible} />
+        )}
+      </Trace>
+    </MaintenanceMode>
   )
 }

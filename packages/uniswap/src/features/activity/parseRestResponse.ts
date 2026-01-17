@@ -80,6 +80,10 @@ export function parseRestResponseToTransactionDetails({
   tokenVisibilityOverrides?: CurrencyIdToVisibility
 }): TransactionDetails[] | undefined {
   return data.transactions.reduce((accum: TransactionDetails[], transaction) => {
+    // Skip transactions with missing or undefined transaction data
+    if (!transaction.transaction) {
+      return accum
+    }
     switch (transaction.transaction.case) {
       case RestTransactionType.OnChain: {
         const parsedTransactions = extractRestOnChainTransactionDetails(transaction.transaction.value)

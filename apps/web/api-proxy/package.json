@@ -1,0 +1,13 @@
+{
+  "name": "uniswap-api-proxy",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "bun run server.ts",
+    "dev": "bun --watch run server.ts"
+  },
+  "dependencies": {
+    "fastify": "^4.26.0",
+    "@fastify/cors": "^9.0.1"
+  }
+}

@@ -2,7 +2,9 @@ import { FeatureFlags, useFeatureFlag } from '@universe/gating'
 import { SearchInput } from 'pages/Portfolio/components/SearchInput'
 import { usePortfolioRoutes } from 'pages/Portfolio/Header/hooks/usePortfolioRoutes'
 import { usePortfolioAddresses } from 'pages/Portfolio/hooks/usePortfolioAddresses'
+import { useSwiftMockData } from 'pages/Portfolio/hooks/useSwiftMockData'
 import { useTransformTokenTableData } from 'pages/Portfolio/Tokens/hooks/useTransformTokenTableData'
+import { SwiftTokensTable } from 'pages/Portfolio/Tokens/Table/SwiftTokensTable'
 import { TokensAllocationChart } from 'pages/Portfolio/Tokens/Table/TokensAllocationChart'
 import { TokensTable } from 'pages/Portfolio/Tokens/Table/TokensTable'
 import { filterTokensBySearch } from 'pages/Portfolio/Tokens/utils/filterTokensBySearch'
@@ -48,6 +50,7 @@ export const PortfolioTokens = memo(function PortfolioTokens() {
   const { chains: enabledChains } = useEnabledChains()
   const { chainId: urlChainId } = usePortfolioRoutes()
   const isPortfolioTokensAllocationChartEnabled = useFeatureFlag(FeatureFlags.PortfolioTokensAllocationChart)
+  const swiftMockData = useSwiftMockData()
 
   // Parse search query to extract chain filter and search term
   const { chainFilter, searchTerm } = useMemo(() => {
@@ -99,6 +102,61 @@ export const PortfolioTokens = memo(function PortfolioTokens() {
       />
     )
   }, [handleShowAllNetworks, urlChainId, t])
+
+  // If Swift mock data is available, render Swift-specific view
+  if (swiftMockData) {
+    return (
+      <Trace logImpression page={InterfacePageName.PortfolioTokensPage}>
+        <Flex flexDirection="column" gap="$spacing16">
+          <Flex
+            row
+            alignItems="baseline"
+            justifyContent="space-between"
+            gap="$spacing8"
+            $md={{ flexDirection: 'column', alignItems: 'flex-start', gap: '$spacing24' }}
+          >
+            <Trace section={SectionName.PortfolioTokensTab} element={ElementName.PortfolioBalance}>
+              <Flex>
+                <Text variant="heading1">
+                  $
+                  {swiftMockData.balance.balanceUSD.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </Text>
+                <Flex row alignItems="center">
+                  <Text variant="body3" color="$statusSuccess">
+                    ▲ 0.00%
+                  </Text>
+                  <Flex
+                    borderRadius="$roundedFull"
+                    backgroundColor="$neutral2"
+                    width="$spacing4"
+                    height="$spacing4"
+                    mx="$spacing8"
+                  />
+                  <Text variant="body3" color="$neutral2">
+                    {t('portfolio.tokens.balance.totalTokens', { numTokens: 1, count: 1 })}
+                  </Text>
+                </Flex>
+              </Flex>
+            </Trace>
+            <Trace logFocus section={SectionName.PortfolioTokensTab} element={ElementName.PortfolioTokensSearch}>
+              <SearchInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder={t('tokens.table.search.placeholder.tokens')}
+                width={media.md ? '100%' : undefined}
+              />
+            </Trace>
+          </Flex>
+          <Trace section={SectionName.PortfolioTokensTab} element={ElementName.PortfolioTokensTable}>
+            <SwiftTokensTable swiftMockData={swiftMockData} />
+          </Trace>
+        </Flex>
+      </Trace>
+    )
+  }
 
   return (
     <RemoveScroll enabled={loading}>

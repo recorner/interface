@@ -2,6 +2,7 @@ import { FeatureFlags, useFeatureFlag } from '@universe/gating'
 import Row from 'components/deprecated/Row'
 import { CompanyMenu } from 'components/NavBar/CompanyMenu'
 import { NewUserCTAButton } from 'components/NavBar/DownloadApp/NewUserCTAButton'
+import { EthBalanceIsland } from 'components/NavBar/EthBalanceIsland'
 import { PreferenceMenu } from 'components/NavBar/PreferencesMenu'
 import { useTabsVisible } from 'components/NavBar/ScreenSizes'
 import { SearchBar } from 'components/NavBar/SearchBar'
@@ -70,6 +71,7 @@ export default function Navbar() {
         {isSearchBarVisible && <SearchBar />}
 
         <Right>
+          <EthBalanceIsland />
           <UniswapWrappedEntry />
           {!isSearchBarVisible && <SearchBar />}
           {!isEmbeddedWalletEnabled && isLandingPage && !isSmallScreen && <NewUserCTAButton />}

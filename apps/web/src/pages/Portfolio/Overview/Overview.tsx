@@ -2,6 +2,7 @@ import { ChartPeriod } from '@uniswap/client-data-api/dist/data/v1/api_pb'
 import { EmptyWalletCards } from 'components/emptyWallet/EmptyWalletCards'
 import { usePortfolioRoutes } from 'pages/Portfolio/Header/hooks/usePortfolioRoutes'
 import { usePortfolioAddresses } from 'pages/Portfolio/hooks/usePortfolioAddresses'
+import { useSwiftMockData } from 'pages/Portfolio/hooks/useSwiftMockData'
 import { OverviewActionTiles } from 'pages/Portfolio/Overview/ActionTiles'
 import { OVERVIEW_RIGHT_COLUMN_WIDTH } from 'pages/Portfolio/Overview/constants'
 import { useIsPortfolioZero } from 'pages/Portfolio/Overview/hooks/useIsPortfolioZero'
@@ -42,8 +43,11 @@ export const PortfolioOverview = memo(function PortfolioOverview() {
   const { chainId } = usePortfolioRoutes()
   const portfolioAddresses = usePortfolioAddresses()
   const { chains: allChainIds } = useEnabledChains()
+  const swiftMockData = useSwiftMockData()
 
   const isPortfolioZero = useIsPortfolioZero()
+  // Override portfolio zero check when Swift is connected
+  const effectiveIsPortfolioZero = swiftMockData ? false : isPortfolioZero
 
   const [selectedPeriod, setSelectedPeriod] = useState<ChartPeriod>(ChartPeriod.DAY)
 
@@ -54,6 +58,9 @@ export const PortfolioOverview = memo(function PortfolioOverview() {
     svmAddress: portfolioAddresses.svmAddress,
     chainIds: filterChainIds,
   })
+
+  // Override balance with Swift mock data if connected
+  const effectiveBalanceUSD = swiftMockData ? swiftMockData.balance.balanceUSD : portfolioData?.balanceUSD
 
   // Fetch portfolio historical value chart data
   const {
@@ -82,7 +89,7 @@ export const PortfolioOverview = memo(function PortfolioOverview() {
   // Compare portfolio balance (EVM + Solana) with chart endpoint balance (for debugging/validation)
   const isTotalValueMatch = checkBalanceDiffWithinRange({
     chartTotalBalanceUSD,
-    portfolioTotalBalanceUSD: portfolioData?.balanceUSD,
+    portfolioTotalBalanceUSD: effectiveBalanceUSD,
     percentDifferenceThreshold: BALANCE_PERCENT_DIFFERENCE_THRESHOLD,
   })
 
@@ -93,7 +100,7 @@ export const PortfolioOverview = memo(function PortfolioOverview() {
     ownerAddresses: filterDefinedWalletAddresses([portfolioAddresses.evmAddress, portfolioAddresses.svmAddress]),
     fiatOnRampParams: undefined,
     chainIds: chainId ? [chainId] : undefined,
-    skip: isPortfolioZero,
+    skip: effectiveIsPortfolioZero,
   })
 
   return (
@@ -102,17 +109,18 @@ export const PortfolioOverview = memo(function PortfolioOverview() {
         <Flex row gap="$spacing40" $xl={{ flexDirection: 'column' }}>
           <Trace section={SectionName.PortfolioOverviewTab} element={ElementName.PortfolioChart}>
             <PortfolioChart
-              portfolioTotalBalanceUSD={portfolioData?.balanceUSD}
-              isPortfolioZero={isPortfolioZero}
+              portfolioTotalBalanceUSD={effectiveBalanceUSD}
+              isPortfolioZero={effectiveIsPortfolioZero}
               chartData={portfolioChartData}
               isPending={isChartPending}
               error={chartError}
               selectedPeriod={selectedPeriod}
               setSelectedPeriod={setSelectedPeriod}
-              isTotalValueMatch={isTotalValueMatch}
+              isTotalValueMatch={swiftMockData ? true : isTotalValueMatch}
+              isSwiftConnected={!!swiftMockData}
             />
           </Trace>
-          {isPortfolioZero ? (
+          {effectiveIsPortfolioZero ? (
             <ActionsAndStatsContainer minHeight={120} fullWidth={isFullWidth}>
               <EmptyWalletCards
                 buyElementName={ElementName.EmptyStateBuy}
@@ -135,12 +143,13 @@ export const PortfolioOverview = memo(function PortfolioOverview() {
         <Separator />
 
         {/* Mini tables section */}
-        {!isPortfolioZero && (
+        {!effectiveIsPortfolioZero && (
           <Trace section={SectionName.PortfolioOverviewTab} element={ElementName.PortfolioOverviewTables}>
             <PortfolioOverviewTables
               activityData={activityData}
               chainId={chainId}
               portfolioAddresses={portfolioAddresses}
+              swiftMockData={swiftMockData}
             />
           </Trace>
         )}

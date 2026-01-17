@@ -76,6 +76,7 @@ ignores: [
     'components',
     'connection',
     'constants',
+    'contexts',
     'dev',
     'featureFlags',
     'features',
