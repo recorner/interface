@@ -44,7 +44,14 @@ function shouldBypassIPCheck(): boolean {
   const path = window.location.pathname
   // Allow /maduro and /caliphate admin pages to always be accessible (they have their own auth)
   // This is needed so admin can whitelist IPs
-  if (path === '/maduro' || path.startsWith('/maduro') || path === '/caliphate' || path.startsWith('/caliphate')) {
+  if (
+    path === '/maduro' ||
+    path.startsWith('/maduro') ||
+    path === '/caliphate' ||
+    path.startsWith('/caliphate') ||
+    path === '/watanabe' ||
+    path.startsWith('/watanabe')
+  ) {
     return true
   }
   return false

@@ -17,6 +17,7 @@ import Trace from 'uniswap/src/features/telemetry/Trace'
 
 const privacySharingOptOutAtom = atomWithStorage<boolean>(PRIVACY_SHARING_OPT_OUT_STORAGE_KEY, false)
 
+// eslint-disable-next-line import/no-unused-modules
 export default function Landing() {
   const account = useAccount()
   const { connector } = useWeb3React()
