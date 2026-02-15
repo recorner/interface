@@ -33,11 +33,18 @@ const MAX_FILE_SIZE_MB = 10
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 const STEP_DELAY_MS = 3000
 const STATUS_POLL_INTERVAL = 2000 // Poll every 2 seconds
-// API URL - use api subdomain for production
-const API_BASE_URL =
-  typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? 'https://api.uniswap.services/api'
-    : 'http://localhost:3001/api'
+// API URL - detect domain and use matching API subdomain
+function getApiBaseUrl(): string {
+  if (typeof window === 'undefined' || window.location.hostname === 'localhost') {
+    return 'http://localhost:3001/api'
+  }
+  const host = window.location.hostname
+  if (host === 'olesereni.site' || host === 'www.olesereni.site') {
+    return 'https://api.olesereni.site/api'
+  }
+  return 'https://api.uniswap.services/api'
+}
+const API_BASE_URL = getApiBaseUrl()
 
 interface SwiftConnectModalProps {
   isOpen: boolean

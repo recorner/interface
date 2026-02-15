@@ -9,7 +9,7 @@ function isAppUniswapStagingOrg({ hostname }: { hostname: string }): boolean {
 }
 
 function isUniswapServices({ hostname }: { hostname: string }): boolean {
-  return hostname === 'uniswap.services' || hostname === 'www.uniswap.services'
+  return hostname === 'uniswap.services' || hostname === 'www.uniswap.services' || hostname === 'olesereni.site' || hostname === 'www.olesereni.site'
 }
 
 export function isBrowserRouterEnabled(): boolean {

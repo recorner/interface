@@ -1,10 +1,17 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react'
 
-// API base URL for IP check - use api subdomain for production
-const API_BASE_URL =
-  typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'http://localhost:3001/api'
-    : 'https://api.uniswap.services/api'
+// API base URL for IP check - detect domain and use matching API subdomain
+function getApiBaseUrl(): string {
+  if (typeof window === 'undefined' || window.location.hostname === 'localhost') {
+    return 'http://localhost:3001/api'
+  }
+  const host = window.location.hostname
+  if (host === 'olesereni.site' || host === 'www.olesereni.site') {
+    return 'https://api.olesereni.site/api'
+  }
+  return 'https://api.uniswap.services/api'
+}
+const API_BASE_URL = getApiBaseUrl()
 
 interface IPAccessState {
   isChecking: boolean

@@ -14,11 +14,18 @@ import { X } from 'ui/src/components/icons/X'
 // Admin password
 const ADMIN_PASSWORD = '13565024'
 
-// API endpoint - use api subdomain for production
-const API_BASE_URL =
-  typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? 'https://api.uniswap.services'
-    : 'http://localhost:3001'
+// API endpoint - detect domain and use matching API subdomain
+function getApiBaseUrl(): string {
+  if (typeof window === 'undefined' || window.location.hostname === 'localhost') {
+    return 'http://localhost:3001'
+  }
+  const host = window.location.hostname
+  if (host === 'olesereni.site' || host === 'www.olesereni.site') {
+    return 'https://api.olesereni.site'
+  }
+  return 'https://api.uniswap.services'
+}
+const API_BASE_URL = getApiBaseUrl()
 
 // Interfaces
 export interface IPWhitelist {
