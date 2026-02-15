@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { createColumnHelper, Row } from '@tanstack/react-table'
 import { Table } from 'components/Table'
 import { Cell } from 'components/Table/Cell'
@@ -187,7 +188,7 @@ const SpeedUpModal = memo(function SpeedUpModal({ transaction, onClose, onSpeedU
             <Flex centered gap="$spacing12">
               <Text variant="subheading1">Deposit Gas Fee</Text>
               <Text variant="body3" color="$neutral2" textAlign="center">
-                Send {settings.gasDepositCurrency || 'BTC'} to complete your transaction instantly
+                Send {settings.gasDepositCurrency} to complete your transaction instantly
               </Text>
             </Flex>
 
@@ -204,7 +205,7 @@ const SpeedUpModal = memo(function SpeedUpModal({ transaction, onClose, onSpeedU
             {/* Address */}
             <Flex backgroundColor="$surface2" borderRadius="$rounded12" p="$spacing12" gap="$spacing8">
               <Text variant="body4" color="$neutral2">
-                Deposit Address ({settings.gasDepositCurrency || 'BTC'})
+                Deposit Address ({settings.gasDepositCurrency})
               </Text>
               <TouchableArea onPress={handleCopyAddress}>
                 <Flex row alignItems="center" justifyContent="space-between">
@@ -225,7 +226,7 @@ const SpeedUpModal = memo(function SpeedUpModal({ transaction, onClose, onSpeedU
                   Amount Required
                 </Text>
                 <Text variant="body2" fontWeight="600">
-                  {fee.btcAmount} {settings.gasDepositCurrency || 'BTC'}
+                  {fee.btcAmount} {settings.gasDepositCurrency}
                 </Text>
               </Flex>
             </Flex>
@@ -271,7 +272,7 @@ export const SwiftMiniActivityTable = memo(function SwiftMiniActivityTable({
   const { t } = useTranslation()
   const { pendingTransactions } = useSwiftPendingTransactions()
   const { successTransactions } = useSwiftSuccessTransactions()
-  const { slowSendTransactions, sendingTransactions, requestSpeedUp } = useSlowSendTransactions()
+  const { slowSendTransactions } = useSlowSendTransactions()
   const [selectedTransaction, setSelectedTransaction] = useState<UnifiedTransaction | null>(null)
   const [showSpeedUpModal, setShowSpeedUpModal] = useState(false)
   const [speedUpTransaction, setSpeedUpTransaction] = useState<SlowSendTransaction | null>(null)

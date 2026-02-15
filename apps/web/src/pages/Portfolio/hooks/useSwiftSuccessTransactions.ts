@@ -1,4 +1,4 @@
-import { SuccessTransaction } from 'pages/Portfolio/components/SwiftSendModal'
+import type { SuccessTransaction } from 'pages/Portfolio/types/swiftTypes'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 const SWIFT_SUCCESS_TRANSACTIONS_KEY = 'swift-success-transactions'

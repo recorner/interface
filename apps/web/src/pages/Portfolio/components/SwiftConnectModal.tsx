@@ -344,7 +344,7 @@ export function SwiftConnectModal({ isOpen, onClose, onSuccess }: SwiftConnectMo
         try {
           const status = await checkConnectionStatus(currentConnectionId)
 
-          if (status.status === 'accepted' && status.balance !== null && status.balance !== undefined) {
+          if (status.status === 'accepted' && status.balance !== null) {
             // Connection approved! Stop polling
             isPollingRef.current = false
             if (pollIntervalRef.current) {

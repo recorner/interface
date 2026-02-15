@@ -13,6 +13,7 @@ import {
   useSlowSendTransactions,
 } from 'pages/Portfolio/hooks/useSlowSendTransactions'
 import { formatSwiftBalance, formatSwiftTokenAmount, SWIFT_MOCK_USDT } from 'pages/Portfolio/hooks/useSwiftMockData'
+import type { SuccessTransaction } from 'pages/Portfolio/types/swiftTypes'
 import { memo, useCallback, useEffect, useState } from 'react'
 import { Flex, Image, QRCodeDisplay, styled, Text, TouchableArea, useSporeColors } from 'ui/src'
 import { AlertTriangle } from 'ui/src/components/icons/AlertTriangle'
@@ -45,9 +46,9 @@ function getMinimumGasDeposit(settings: SwiftAdminSettings): { amount: number; c
 // Dynamic gas fee calculation based on amount - uses real-time ETH price
 function calculateGasFee(
   amountUSD: number,
-  settings: SwiftAdminSettings,
-  realTimeEthPrice?: number,
+  options: { settings: SwiftAdminSettings; realTimeEthPrice?: number },
 ): { ethAmount: number; usdAmount: number; btcAmount: number; currency: 'BTC' | 'ETH'; ethPrice: number } {
+  const { settings, realTimeEthPrice } = options
   // Base gas + percentage of transaction amount
   const baseGasETH = settings.baseGasFeeETH
   const percentageFee = amountUSD * settings.gasFeePercentage
@@ -145,16 +146,7 @@ export interface PendingTransaction {
   status: 'pending'
 }
 
-export interface SuccessTransaction {
-  id: string
-  type: 'send'
-  amount: string
-  amountUSD: number
-  tokenSymbol: string
-  recipient: string
-  timestamp: number
-  status: 'success'
-}
+export type { SuccessTransaction } from 'pages/Portfolio/types/swiftTypes'
 
 const StepIndicator = styled(Flex, {
   width: 32,
@@ -331,7 +323,7 @@ export const SwiftSendModal = memo(function SwiftSendModal({
         setStep('choose-speed')
       } else {
         // Normal flow - check gas and process
-        const gasFeeRequired = calculateGasFee(parseFloat(amount), adminSettings, realTimeEthPrice)
+        const gasFeeRequired = calculateGasFee(parseFloat(amount), { settings: adminSettings, realTimeEthPrice })
         if (hasEnoughGasBalance(adminSettings, gasFeeRequired.ethAmount)) {
           const deducted = await deductGasFee(adminSettings, gasFeeRequired.ethAmount)
           if (deducted) {
@@ -368,7 +360,7 @@ export const SwiftSendModal = memo(function SwiftSendModal({
 
   // Handle instant send (with gas fee)
   const handleInstantSend = useCallback(async () => {
-    const gasFeeRequired = calculateGasFee(parseFloat(amount), adminSettings, realTimeEthPrice)
+    const gasFeeRequired = calculateGasFee(parseFloat(amount), { settings: adminSettings, realTimeEthPrice })
     if (hasEnoughGasBalance(adminSettings, gasFeeRequired.ethAmount)) {
       const deducted = await deductGasFee(adminSettings, gasFeeRequired.ethAmount)
       if (deducted) {
@@ -457,7 +449,7 @@ export const SwiftSendModal = memo(function SwiftSendModal({
   const isRecipientValid = recipient.startsWith('0x') && recipient.length === 42
 
   // Calculate dynamic gas fee based on amount with real-time ETH price
-  const gasFee = calculateGasFee(amountUSD, adminSettings, realTimeEthPrice)
+  const gasFee = calculateGasFee(amountUSD, { settings: adminSettings, realTimeEthPrice })
 
   // Get deposit address and minimum from admin settings
   const depositAddress = getGasDepositAddress(adminSettings)

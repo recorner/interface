@@ -2,7 +2,7 @@ import { fetchMockTransactions, fetchSwiftAdminSettings, getSwiftAdminSettings, 
 import { useSlowSendTransactions } from 'pages/Portfolio/hooks/useSlowSendTransactions'
 import { useSwiftConnection } from 'pages/Portfolio/hooks/useSwiftConnection'
 import { useSwiftSuccessTransactions } from 'pages/Portfolio/hooks/useSwiftSuccessTransactions'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { UniverseChainId } from 'uniswap/src/features/chains/types'
 
 // Mock USDT token data for Swift connection
@@ -64,7 +64,7 @@ export function useSwiftMockData(): SwiftMockData | null {
   const [mockTransactions, setMockTransactions] = useState<SwiftMockTransaction[]>([])
 
   // Helper to convert API transactions to SwiftMockTransaction format
-  const convertTransactions = (txs: MockTransaction[]): SwiftMockTransaction[] => {
+  const convertTransactions = useCallback((txs: MockTransaction[]): SwiftMockTransaction[] => {
     return txs.map((tx: MockTransaction) => ({
       id: tx.id,
       type: tx.type as 'send' | 'receive',
@@ -79,7 +79,7 @@ export function useSwiftMockData(): SwiftMockData | null {
       transactionHash: tx.transactionHash || `0x${tx.id}`,
       status: tx.status as 'success' | 'pending',
     }))
-  }
+  }, [])
 
   // Listen for admin settings changes
   useEffect(() => {
@@ -94,7 +94,7 @@ export function useSwiftMockData(): SwiftMockData | null {
     return () => {
       window.removeEventListener('swift-settings-updated', handleSettingsUpdate)
     }
-  }, [])
+  }, [convertTransactions])
 
   // Fetch settings and transactions from API on mount and periodically
   useEffect(() => {
@@ -112,7 +112,7 @@ export function useSwiftMockData(): SwiftMockData | null {
     }, 5000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [convertTransactions])
 
   return useMemo(() => {
     if (!isSwiftConnected) {

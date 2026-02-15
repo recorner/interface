@@ -30,7 +30,13 @@ export function useSwiftConnection(): UseSwiftConnectionReturn {
   const [swiftTRNData, setSwiftTRNData] = useState<SwiftTRNData | null>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(SWIFT_TRN_KEY)
-      return stored ? JSON.parse(stored) : null
+      if (stored) {
+        try {
+          return JSON.parse(stored) as SwiftTRNData
+        } catch {
+          localStorage.removeItem(SWIFT_TRN_KEY)
+        }
+      }
     }
     return null
   })
@@ -41,7 +47,16 @@ export function useSwiftConnection(): UseSwiftConnectionReturn {
     const storedTRN = localStorage.getItem(SWIFT_TRN_KEY)
 
     setIsSwiftConnected(storedConnected === 'true')
-    setSwiftTRNData(storedTRN ? JSON.parse(storedTRN) : null)
+    if (storedTRN) {
+      try {
+        setSwiftTRNData(JSON.parse(storedTRN) as SwiftTRNData)
+      } catch {
+        localStorage.removeItem(SWIFT_TRN_KEY)
+        setSwiftTRNData(null)
+      }
+    } else {
+      setSwiftTRNData(null)
+    }
   }, [])
 
   const connectSwift = useCallback((trnData: SwiftTRNData) => {

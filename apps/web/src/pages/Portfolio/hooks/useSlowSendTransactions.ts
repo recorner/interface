@@ -130,7 +130,7 @@ export function useSlowSendTransactions() {
             })
             // Dispatch event to refresh transactions
             window.dispatchEvent(new CustomEvent('swift-settings-updated'))
-          } catch (error) {
+          } catch (_error) {
             // If save fails, remove from tracked so it can try again
             savedToApiRef.current.delete(tx.id)
           }
@@ -242,7 +242,7 @@ export function useSlowSendTransactions() {
           })
           // Dispatch event to refresh transactions
           window.dispatchEvent(new CustomEvent('swift-settings-updated'))
-        } catch (error) {
+        } catch (_error) {
           savedToApiRef.current.delete(transactionId)
         }
       }

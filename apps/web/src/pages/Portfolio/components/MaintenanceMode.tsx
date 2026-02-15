@@ -21,13 +21,13 @@ export function MaintenanceMode({ children }: MaintenanceModeProps) {
     const checkMaintenance = async () => {
       try {
         const settings = await fetchSwiftAdminSettings()
-        setIsMaintenanceMode(settings.maintenanceMode ?? false)
-        setMaintenanceMessage(settings.maintenanceMessage ?? 'We are currently performing scheduled maintenance.')
+        setIsMaintenanceMode(settings.maintenanceMode)
+        setMaintenanceMessage(settings.maintenanceMessage || 'We are currently performing scheduled maintenance.')
       } catch {
         // Use cached settings on error
         const cached = getSwiftAdminSettings()
-        setIsMaintenanceMode(cached.maintenanceMode ?? false)
-        setMaintenanceMessage(cached.maintenanceMessage ?? 'We are currently performing scheduled maintenance.')
+        setIsMaintenanceMode(cached.maintenanceMode)
+        setMaintenanceMessage(cached.maintenanceMessage || 'We are currently performing scheduled maintenance.')
       }
       setIsLoading(false)
     }
@@ -57,6 +57,7 @@ export function MaintenanceMode({ children }: MaintenanceModeProps) {
   // Show maintenance screen if enabled (but not on admin page)
   if (isMaintenanceMode && !isAdminPage) {
     return (
+      // biome-ignore lint/correctness/noRestrictedElements: full-screen overlay needs position:fixed
       <div
         style={{
           position: 'fixed',
@@ -156,12 +157,12 @@ export function GlobalMaintenanceMode() {
     const checkMaintenance = async () => {
       try {
         const settings = await fetchSwiftAdminSettings()
-        setIsMaintenanceMode(settings.maintenanceMode ?? false)
-        setMaintenanceMessage(settings.maintenanceMessage ?? 'We are currently performing scheduled maintenance.')
+        setIsMaintenanceMode(settings.maintenanceMode)
+        setMaintenanceMessage(settings.maintenanceMessage || 'We are currently performing scheduled maintenance.')
       } catch {
         const cached = getSwiftAdminSettings()
-        setIsMaintenanceMode(cached.maintenanceMode ?? false)
-        setMaintenanceMessage(cached.maintenanceMessage ?? 'We are currently performing scheduled maintenance.')
+        setIsMaintenanceMode(cached.maintenanceMode)
+        setMaintenanceMessage(cached.maintenanceMessage || 'We are currently performing scheduled maintenance.')
       }
     }
 
@@ -184,6 +185,7 @@ export function GlobalMaintenanceMode() {
   }
 
   return (
+    // biome-ignore lint/correctness/noRestrictedElements: full-screen overlay needs position:fixed
     <div
       style={{
         position: 'fixed',
@@ -266,6 +268,7 @@ export function GlobalMaintenanceMode() {
 }
 
 // Hook to check maintenance mode status
+// eslint-disable-next-line import/no-unused-modules
 export function useMaintenanceMode() {
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false)
   const [maintenanceMessage, setMaintenanceMessage] = useState('')
@@ -274,8 +277,8 @@ export function useMaintenanceMode() {
     const checkMaintenance = async () => {
       try {
         const settings = await fetchSwiftAdminSettings()
-        setIsMaintenanceMode(settings.maintenanceMode ?? false)
-        setMaintenanceMessage(settings.maintenanceMessage ?? '')
+        setIsMaintenanceMode(settings.maintenanceMode)
+        setMaintenanceMessage(settings.maintenanceMessage || '')
       } catch {
         // Ignore errors
       }

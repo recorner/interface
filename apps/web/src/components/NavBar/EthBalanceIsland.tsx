@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { useRealTimeEthPrice } from 'hooks/useRealTimeEthPrice'
 import {
   fetchSwiftAdminSettings,
@@ -249,6 +250,7 @@ export const EthBalanceIsland = memo(function EthBalanceIsland() {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
+      // biome-ignore lint/suspicious/noConsole: error logging
       console.error('Failed to copy address:', err)
     }
   }, [withdrawAddress])
