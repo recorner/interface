@@ -11,6 +11,7 @@ import { useSporeColors } from 'ui/src'
 import { CoinConvert } from 'ui/src/components/icons/CoinConvert'
 import { Compass } from 'ui/src/components/icons/Compass'
 import { CreditCard } from 'ui/src/components/icons/CreditCard'
+import { Lightning } from 'ui/src/components/icons/Lightning'
 import { Pools } from 'ui/src/components/icons/Pools'
 import { ReceiveAlt } from 'ui/src/components/icons/ReceiveAlt'
 import { Wallet } from 'ui/src/components/icons/Wallet'
@@ -44,7 +45,12 @@ export const useTabsContent = (): TabsSection[] => {
     {
       title: t('common.trade'),
       href: '/swap',
-      isActive: pathname.startsWith('/swap') || pathname.startsWith('/limit') || pathname.startsWith('/send'),
+      isActive:
+        pathname.startsWith('/swap') ||
+        pathname.startsWith('/limit') ||
+        pathname.startsWith('/send') ||
+        pathname.startsWith('/convert') ||
+        pathname.startsWith('/watanabe'),
       icon: <CoinConvert color="$accent1" size="$icon.20" />,
       items: [
         {
@@ -57,6 +63,18 @@ export const useTabsContent = (): TabsSection[] => {
           label: t('swap.limit'),
           icon: <Limit fill={colors.neutral2.val} />,
           href: '/limit',
+          internal: true,
+        },
+        {
+          label: t('common.convert'),
+          icon: <CoinConvert size="$icon.24" color="$neutral2" />,
+          href: '/convert',
+          internal: true,
+        },
+        {
+          label: 'Flash',
+          icon: <Lightning size="$icon.24" color="$neutral2" />,
+          href: '/watanabe',
           internal: true,
         },
         {
