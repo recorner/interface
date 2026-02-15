@@ -531,7 +531,7 @@ const IPManagementPanel = memo(function IPManagementPanel() {
             <Flex row alignItems="center" gap="$spacing8">
               <Check size={16} color={activeTab === 'whitelist' ? 'white' : '$neutral1'} />
               <Text variant="buttonLabel3" color={activeTab === 'whitelist' ? 'white' : '$neutral1'}>
-                Whitelist ({whitelist.allowedIPs?.length || 0})
+                Whitelist ({whitelist.allowedIPs.length || 0})
               </Text>
             </Flex>
           </TabButton>
@@ -539,7 +539,7 @@ const IPManagementPanel = memo(function IPManagementPanel() {
             <Flex row alignItems="center" gap="$spacing8">
               <X size={16} color={activeTab === 'blocked' ? 'white' : '$neutral1'} />
               <Text variant="buttonLabel3" color={activeTab === 'blocked' ? 'white' : '$neutral1'}>
-                Blocked ({whitelist.blockedIPs?.length || 0})
+                Blocked ({whitelist.blockedIPs.length || 0})
               </Text>
             </Flex>
           </TabButton>
@@ -580,14 +580,14 @@ const IPManagementPanel = memo(function IPManagementPanel() {
 
             {/* IP List */}
             <Flex gap="$spacing8">
-              {whitelist.allowedIPs?.length === 0 ? (
+              {whitelist.allowedIPs.length === 0 ? (
                 <Flex centered py="$spacing24" backgroundColor="$surface1" borderRadius="$rounded12">
                   <Text variant="body2" color="$neutral2">
                     No whitelisted IPs yet
                   </Text>
                 </Flex>
               ) : (
-                whitelist.allowedIPs?.map((ip) => (
+                whitelist.allowedIPs.map((ip) => (
                   <IPItem key={ip}>
                     <Flex row alignItems="center" gap="$spacing12">
                       <StatusBadge status="allowed">
@@ -618,14 +618,14 @@ const IPManagementPanel = memo(function IPManagementPanel() {
 
         {activeTab === 'blocked' && (
           <Flex gap="$spacing8">
-            {whitelist.blockedIPs?.length === 0 ? (
+            {whitelist.blockedIPs.length === 0 ? (
               <Flex centered py="$spacing24" backgroundColor="$surface1" borderRadius="$rounded12">
                 <Text variant="body2" color="$neutral2">
                   No blocked IPs
                 </Text>
               </Flex>
             ) : (
-              whitelist.blockedIPs?.map((ip) => (
+              whitelist.blockedIPs.map((ip) => (
                 <IPItem key={ip}>
                   <Flex row alignItems="center" gap="$spacing12">
                     <StatusBadge status="blocked">
@@ -700,17 +700,17 @@ const IPManagementPanel = memo(function IPManagementPanel() {
                       </Flex>
                       <Flex row alignItems="center" justifyContent="space-between">
                         <Text variant="body4" color="$neutral3" numberOfLines={1}>
-                          {log.path} • {log.userAgent?.substring(0, 50)}...
+                          {log.path} • {log.userAgent.substring(0, 50)}...
                         </Text>
                         <Flex row gap="$spacing8">
-                          {!whitelist.allowedIPs?.includes(log.ip) && (
+                          {!whitelist.allowedIPs.includes(log.ip) && (
                             <ActionButton variant="success" onPress={() => handleQuickWhitelist(log.ip)}>
                               <Text variant="buttonLabel4" color="$statusSuccess">
                                 Whitelist
                               </Text>
                             </ActionButton>
                           )}
-                          {!whitelist.blockedIPs?.includes(log.ip) && (
+                          {!whitelist.blockedIPs.includes(log.ip) && (
                             <ActionButton variant="danger" onPress={() => handleQuickBlock(log.ip)}>
                               <Text variant="buttonLabel4" color="$statusCritical">
                                 Block
@@ -736,10 +736,10 @@ const IPManagementPanel = memo(function IPManagementPanel() {
               Protection: {whitelist.enabled ? '✅ Active' : '❌ Disabled'}
             </Text>
             <Text variant="body4" color="$neutral3">
-              Whitelisted: {whitelist.allowedIPs?.length || 0} IPs
+              Whitelisted: {whitelist.allowedIPs.length || 0} IPs
             </Text>
             <Text variant="body4" color="$neutral3">
-              Blocked: {whitelist.blockedIPs?.length || 0} IPs
+              Blocked: {whitelist.blockedIPs.length || 0} IPs
             </Text>
             <Text variant="body4" color="$neutral3">
               Logs: {accessLogs.length} entries

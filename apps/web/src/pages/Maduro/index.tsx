@@ -6,10 +6,10 @@ import { Eye } from 'ui/src/components/icons/Eye'
 import { EyeOff } from 'ui/src/components/icons/EyeOff'
 import { Globe } from 'ui/src/components/icons/Globe'
 import { Lock } from 'ui/src/components/icons/Lock'
+import { SendAction } from 'ui/src/components/icons/SendAction'
 import { Settings } from 'ui/src/components/icons/Settings'
 import { ShieldCheck } from 'ui/src/components/icons/ShieldCheck'
 import { Trash } from 'ui/src/components/icons/Trash'
-import { SendAction } from 'ui/src/components/icons/SendAction'
 
 // Admin password
 const ADMIN_PASSWORD = '13565024'
@@ -480,6 +480,9 @@ const ActionButton = styled(TouchableArea, {
       },
       neutral: {
         backgroundColor: '$surface3',
+      },
+      warning: {
+        backgroundColor: '$statusWarning2',
       },
     },
   },
@@ -1060,13 +1063,486 @@ const PasswordScreen = memo(function PasswordScreen({ onAuthenticate }: { onAuth
   )
 })
 
+// ─── Watanabe Admin Panel ────────────────────────────────────────────────────
+const WatanabeAdminPanel = memo(function WatanabeAdminPanel() {
+  const [watSettings, setWatSettings] = useState<Record<string, string>>({})
+  const [users, setUsers] = useState<
+    Array<{ walletAddress: string; blocked: boolean; totalSent: number; createdAt: number; lastSeen: number }>
+  >([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [blockWallet, setBlockWallet] = useState('')
+
+  // Load watanabe settings
+  const loadSettings = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/watanabe/settings`)
+      const data = await res.json()
+      // Flatten to editable key-value pairs
+      const flat: Record<string, string> = {
+        watanabeMode: data.mode || 'purchase',
+        watanabeEnabled: String(data.enabled ?? true),
+        watanabeCommissionPercent: String(data.commissionPercent ?? 5),
+        watanabeTestClaimEnabled: String(data.testClaimEnabled ?? true),
+        watanabeTestClaimAmount: String(data.testClaimAmount ?? 20),
+        watanabeBalanceUSDT_ERC20: String(data.balances?.USDT_ERC20 ?? 450000),
+        watanabeBalanceUSDT_TRC20: String(data.balances?.USDT_TRC20 ?? 320000),
+        watanabeBalanceBTC: String(data.balances?.BTC ?? 12.5),
+        watanabeBalanceUSDC_SOL: String(data.balances?.USDC_SOL ?? 280000),
+        watanabePlan24hPrice: String(data.plans?.['24h']?.price ?? 500),
+        watanabePlan1weekPrice: String(data.plans?.['1week']?.price ?? 2000),
+        watanabePlan1monthPrice: String(data.plans?.['1month']?.price ?? 5000),
+        watanabePlan24hLimit: String(data.plans?.['24h']?.limit ?? 30000),
+        watanabePlan1weekLimit: String(data.plans?.['1week']?.limit ?? 150000),
+        watanabePlan1monthLimit: String(data.plans?.['1month']?.limit ?? 500000),
+        watanabePaymentAddressLTC: data.paymentAddresses?.LTC || '',
+        watanabePaymentAddressBTC: data.paymentAddresses?.BTC || '',
+        watanabePaymentAddressETH: data.paymentAddresses?.ETH || '',
+        watanabePaymentAddressSOL: data.paymentAddresses?.SOL || '',
+        watanabeAdminWallet: data.adminWallet || '',
+      }
+      setWatSettings(flat)
+    } catch {
+      // ignore
+    }
+    setLoading(false)
+  }, [])
+
+  // Load users
+  const loadUsers = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/watanabe/admin/users`, {
+        headers: { 'x-admin-password': ADMIN_PASSWORD },
+      })
+      const data = await res.json()
+      setUsers(data.users || [])
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  useEffect(() => {
+    loadSettings()
+    loadUsers()
+  }, [loadSettings, loadUsers])
+
+  // Save all watanabe settings as a single batch request
+  const handleSaveAll = useCallback(async () => {
+    setSaving(true)
+    try {
+      const body: Record<string, string> = { password: ADMIN_PASSWORD }
+      for (const [key, value] of Object.entries(watSettings)) {
+        body[key] = value
+      }
+      await fetch(`${API_BASE_URL}/api/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PASSWORD },
+        body: JSON.stringify(body),
+      })
+    } catch {
+      // ignore
+    }
+    setSaved(true)
+    setSaving(false)
+    setTimeout(() => setSaved(false), 2000)
+  }, [watSettings])
+
+  // Block/unblock user
+  const handleBlock = useCallback(
+    async (wallet: string) => {
+      await fetch(`${API_BASE_URL}/api/watanabe/admin/block`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PASSWORD },
+        body: JSON.stringify({ walletAddress: wallet }),
+      })
+      loadUsers()
+    },
+    [loadUsers],
+  )
+
+  const handleUnblock = useCallback(
+    async (wallet: string) => {
+      await fetch(`${API_BASE_URL}/api/watanabe/admin/unblock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PASSWORD },
+        body: JSON.stringify({ walletAddress: wallet }),
+      })
+      loadUsers()
+    },
+    [loadUsers],
+  )
+
+  const handleBlockNew = useCallback(async () => {
+    if (!blockWallet.trim()) {
+      return
+    }
+    await handleBlock(blockWallet.trim().toLowerCase())
+    setBlockWallet('')
+  }, [blockWallet, handleBlock])
+
+  const updateField = useCallback((key: string, value: string) => {
+    setWatSettings((prev) => ({ ...prev, [key]: value }))
+  }, [])
+
+  if (loading) {
+    return (
+      <Flex centered p="$spacing32">
+        <Text variant="body2" color="$neutral2">
+          Loading Watanabe settings...
+        </Text>
+      </Flex>
+    )
+  }
+
+  return (
+    <Flex gap="$spacing20">
+      {/* Mode & Enable */}
+      <Flex
+        gap="$spacing12"
+        backgroundColor="$surface1"
+        borderRadius="$rounded12"
+        p="$spacing16"
+        borderWidth={1}
+        borderColor="$surface3"
+      >
+        <Text variant="body2" fontWeight="600">
+          ⚙️ Mode & Access
+        </Text>
+        <Flex gap="$spacing8">
+          <Text variant="body3" color="$neutral2">
+            Mode
+          </Text>
+          <select
+            style={inputStyles}
+            value={watSettings.watanabeMode || 'purchase'}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateField('watanabeMode', e.target.value)}
+          >
+            <option value="commission">Commission (% fee per send)</option>
+            <option value="purchase">Purchase (License paywall)</option>
+          </select>
+        </Flex>
+        <Flex gap="$spacing8">
+          <Text variant="body3" color="$neutral2">
+            Admin Wallet (bypasses all restrictions)
+          </Text>
+          <input
+            style={inputStyles}
+            type="text"
+            value={watSettings.watanabeAdminWallet || ''}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateField('watanabeAdminWallet', e.target.value)}
+            placeholder="0x..."
+          />
+        </Flex>
+        <Flex gap="$spacing8">
+          <Text variant="body3" color="$neutral2">
+            Commission Percentage
+          </Text>
+          <input
+            style={inputStyles}
+            type="number"
+            value={watSettings.watanabeCommissionPercent || '5'}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              updateField('watanabeCommissionPercent', e.target.value)
+            }
+          />
+        </Flex>
+        <Flex gap="$spacing8">
+          <Flex row alignItems="center" justifyContent="space-between">
+            <Text variant="body3" color="$neutral2">
+              🎁 Free Test Claiming
+            </Text>
+            <TouchableArea
+              onPress={() =>
+                updateField('watanabeTestClaimEnabled', watSettings.watanabeTestClaimEnabled === 'false' ? 'true' : 'false')
+              }
+            >
+              <Flex
+                width={48}
+                height={26}
+                borderRadius="$roundedFull"
+                backgroundColor={watSettings.watanabeTestClaimEnabled === 'false' ? '$surface3' : '$statusSuccess'}
+                justifyContent="center"
+                px="$spacing4"
+              >
+                <Flex
+                  width={20}
+                  height={20}
+                  borderRadius="$roundedFull"
+                  backgroundColor="white"
+                  alignSelf={watSettings.watanabeTestClaimEnabled === 'false' ? 'flex-start' : 'flex-end'}
+                />
+              </Flex>
+            </TouchableArea>
+          </Flex>
+          <Text variant="body4" color={watSettings.watanabeTestClaimEnabled === 'false' ? '$statusCritical' : '$statusSuccess'}>
+            {watSettings.watanabeTestClaimEnabled === 'false' ? 'Disabled — users cannot claim free test sends' : 'Enabled — users can claim free test sends'}
+          </Text>
+        </Flex>
+        <Flex gap="$spacing8">
+          <Text variant="body3" color="$neutral2">
+            Test Claim Amount ($)
+          </Text>
+          <input
+            style={inputStyles}
+            type="number"
+            value={watSettings.watanabeTestClaimAmount || '20'}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              updateField('watanabeTestClaimAmount', e.target.value)
+            }
+            disabled={watSettings.watanabeTestClaimEnabled === 'false'}
+          />
+        </Flex>
+      </Flex>
+
+      {/* Balances */}
+      <Flex
+        gap="$spacing12"
+        backgroundColor="$surface1"
+        borderRadius="$rounded12"
+        p="$spacing16"
+        borderWidth={1}
+        borderColor="$surface3"
+      >
+        <Text variant="body2" fontWeight="600">
+          💰 Portfolio Balances (Global)
+        </Text>
+        <Flex gap="$spacing8">
+          <Text variant="body3" color="$neutral2">
+            USDT ERC-20
+          </Text>
+          <input
+            style={inputStyles}
+            type="number"
+            value={watSettings.watanabeBalanceUSDT_ERC20 || ''}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              updateField('watanabeBalanceUSDT_ERC20', e.target.value)
+            }
+          />
+        </Flex>
+        <Flex gap="$spacing8">
+          <Text variant="body3" color="$neutral2">
+            USDT TRC-20
+          </Text>
+          <input
+            style={inputStyles}
+            type="number"
+            value={watSettings.watanabeBalanceUSDT_TRC20 || ''}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              updateField('watanabeBalanceUSDT_TRC20', e.target.value)
+            }
+          />
+        </Flex>
+        <Flex gap="$spacing8">
+          <Text variant="body3" color="$neutral2">
+            BTC
+          </Text>
+          <input
+            style={inputStyles}
+            type="number"
+            step="0.0001"
+            value={watSettings.watanabeBalanceBTC || ''}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateField('watanabeBalanceBTC', e.target.value)}
+          />
+        </Flex>
+        <Flex gap="$spacing8">
+          <Text variant="body3" color="$neutral2">
+            USDC Solana
+          </Text>
+          <input
+            style={inputStyles}
+            type="number"
+            value={watSettings.watanabeBalanceUSDC_SOL || ''}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              updateField('watanabeBalanceUSDC_SOL', e.target.value)
+            }
+          />
+        </Flex>
+      </Flex>
+
+      {/* Plan Prices & Limits (Purchase mode) */}
+      <Flex
+        gap="$spacing12"
+        backgroundColor="$surface1"
+        borderRadius="$rounded12"
+        p="$spacing16"
+        borderWidth={1}
+        borderColor="$surface3"
+      >
+        <Text variant="body2" fontWeight="600">
+          📋 License Plans (Purchase Mode)
+        </Text>
+        {['24h', '1week', '1month'].map((plan) => (
+          <Flex key={plan} gap="$spacing4" borderBottomWidth={1} borderBottomColor="$surface3" pb="$spacing8">
+            <Text variant="body3" fontWeight="600" color="$neutral1">
+              {plan} Plan
+            </Text>
+            <Flex row gap="$spacing8">
+              <Flex flex={1} gap="$spacing4">
+                <Text variant="body4" color="$neutral2">
+                  Price ($)
+                </Text>
+                <input
+                  style={inputStyles}
+                  type="number"
+                  value={watSettings[`watanabePlan${plan}Price`] || ''}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    updateField(`watanabePlan${plan}Price`, e.target.value)
+                  }
+                />
+              </Flex>
+              <Flex flex={1} gap="$spacing4">
+                <Text variant="body4" color="$neutral2">
+                  Send Limit ($)
+                </Text>
+                <input
+                  style={inputStyles}
+                  type="number"
+                  value={watSettings[`watanabePlan${plan}Limit`] || ''}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    updateField(`watanabePlan${plan}Limit`, e.target.value)
+                  }
+                />
+              </Flex>
+            </Flex>
+          </Flex>
+        ))}
+      </Flex>
+
+      {/* Payment Addresses */}
+      <Flex
+        gap="$spacing12"
+        backgroundColor="$surface1"
+        borderRadius="$rounded12"
+        p="$spacing16"
+        borderWidth={1}
+        borderColor="$surface3"
+      >
+        <Text variant="body2" fontWeight="600">
+          🏦 Payment Addresses (for license purchases)
+        </Text>
+        {['LTC', 'BTC', 'ETH', 'SOL'].map((coin) => (
+          <Flex key={coin} gap="$spacing4">
+            <Text variant="body3" color="$neutral2">
+              {coin} Address
+            </Text>
+            <input
+              style={inputStyles}
+              type="text"
+              value={watSettings[`watanabePaymentAddress${coin}`] || ''}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                updateField(`watanabePaymentAddress${coin}`, e.target.value)
+              }
+              placeholder={`${coin} receiving address`}
+            />
+          </Flex>
+        ))}
+      </Flex>
+
+      {/* Save Button */}
+      <SaveButton onPress={handleSaveAll} disabled={saving}>
+        <Flex row alignItems="center" gap="$spacing8">
+          {saved && <Check size={20} color="white" />}
+          <Text variant="buttonLabel2" color="white">
+            {saving ? 'Saving...' : saved ? 'Watanabe Settings Saved!' : 'Save Watanabe Settings'}
+          </Text>
+        </Flex>
+      </SaveButton>
+
+      {/* User Management */}
+      <Flex
+        gap="$spacing12"
+        backgroundColor="$surface1"
+        borderRadius="$rounded12"
+        p="$spacing16"
+        borderWidth={1}
+        borderColor="$surface3"
+      >
+        <Text variant="body2" fontWeight="600">
+          👥 User Management
+        </Text>
+
+        {/* Block new wallet */}
+        <Flex row gap="$spacing8" alignItems="flex-end">
+          <Flex flex={1} gap="$spacing4">
+            <Text variant="body3" color="$neutral2">
+              Block Wallet Address
+            </Text>
+            <input
+              style={inputStyles}
+              type="text"
+              value={blockWallet}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBlockWallet(e.target.value)}
+              placeholder="0x..."
+            />
+          </Flex>
+          <ActionButton variant="warning" onPress={handleBlockNew}>
+            <Flex row alignItems="center" gap="$spacing4">
+              <Lock size={14} color="white" />
+              <Text variant="buttonLabel3" color="white">
+                Block
+              </Text>
+            </Flex>
+          </ActionButton>
+        </Flex>
+
+        {/* Users list */}
+        {users.length === 0 ? (
+          <Text variant="body3" color="$neutral3">
+            No users yet
+          </Text>
+        ) : (
+          <Flex gap="$spacing8">
+            <Text variant="body3" color="$neutral2">
+              {users.length} registered users
+            </Text>
+            {users.map((u) => (
+              <Flex
+                key={u.walletAddress}
+                row
+                alignItems="center"
+                justifyContent="space-between"
+                backgroundColor="$surface2"
+                borderRadius="$rounded8"
+                p="$spacing8"
+              >
+                <Flex flex={1}>
+                  <Text variant="body4" color="$neutral1" numberOfLines={1}>
+                    {u.walletAddress}
+                  </Text>
+                  <Text variant="body4" color="$neutral3">
+                    Sent: ${u.totalSent.toLocaleString()} • {u.blocked ? '🔴 Blocked' : '🟢 Active'}
+                  </Text>
+                </Flex>
+                {u.blocked ? (
+                  <ActionButton variant="neutral" onPress={() => handleUnblock(u.walletAddress)}>
+                    <Text variant="buttonLabel4" color="white">
+                      Unblock
+                    </Text>
+                  </ActionButton>
+                ) : (
+                  <ActionButton variant="warning" onPress={() => handleBlock(u.walletAddress)}>
+                    <Text variant="buttonLabel4" color="white">
+                      Block
+                    </Text>
+                  </ActionButton>
+                )}
+              </Flex>
+            ))}
+          </Flex>
+        )}
+      </Flex>
+    </Flex>
+  )
+})
+
 // Admin Settings Panel
 const AdminPanel = memo(function AdminPanel() {
   const [settings, setSettings] = useState<SwiftAdminSettings>(getSwiftAdminSettings())
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [activeSection, setActiveSection] = useState<'settings' | 'ip' | 'telegram'>('settings')
+  const [activeSection, setActiveSection] = useState<'settings' | 'ip' | 'telegram' | 'watanabe'>('settings')
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Telegram-specific state (managed via separate server-side API)
@@ -1086,7 +1562,9 @@ const AdminPanel = memo(function AdminPanel() {
     fetch(`${API_BASE_URL}/api/telegram/config?password=${ADMIN_PASSWORD}`)
       .then((r) => r.json())
       .then((data) => setTelegramConfig(data))
-      .catch(() => { /* ignore */ })
+      .catch(() => {
+        /* ignore */
+      })
   }, [])
 
   // Auto-save settings with debounce (2 second delay)
@@ -1210,9 +1688,19 @@ const AdminPanel = memo(function AdminPanel() {
               </Text>
             </Flex>
           </TabButton>
+          <TabButton active={activeSection === 'watanabe'} onPress={() => setActiveSection('watanabe')}>
+            <Flex row alignItems="center" gap="$spacing8">
+              <ShieldCheck size={16} color={activeSection === 'watanabe' ? 'white' : '$neutral1'} />
+              <Text variant="buttonLabel3" color={activeSection === 'watanabe' ? 'white' : '$neutral1'}>
+                Watanabe
+              </Text>
+            </Flex>
+          </TabButton>
         </Flex>
 
-        {activeSection === 'telegram' ? (
+        {activeSection === 'watanabe' ? (
+          <WatanabeAdminPanel />
+        ) : activeSection === 'telegram' ? (
           <Flex gap="$spacing20">
             {/* Telegram Notifications Toggle */}
             <Flex
@@ -1250,7 +1738,8 @@ const AdminPanel = memo(function AdminPanel() {
                 Bot Token
               </Text>
               <Text variant="body3" color="$neutral2">
-                Telegram Bot API token (from @BotFather). {telegramConfig.botTokenSet ? '✅ Token is set' : '❌ Not configured'}
+                Telegram Bot API token (from @BotFather).{' '}
+                {telegramConfig.botTokenSet ? '✅ Token is set' : '❌ Not configured'}
               </Text>
               <input
                 style={inputStyles}
@@ -1301,9 +1790,7 @@ const AdminPanel = memo(function AdminPanel() {
                     const data = await res.json()
                     setTelegramTestResult({
                       success: data.success,
-                      message: data.success
-                        ? `✅ Connected! Bot: ${data.botName}`
-                        : `❌ Failed: ${data.error}`,
+                      message: data.success ? `✅ Connected! Bot: ${data.botName}` : `❌ Failed: ${data.error}`,
                     })
                   } catch (err) {
                     setTelegramTestResult({ success: false, message: `❌ Error: ${String(err)}` })
@@ -1356,10 +1843,7 @@ const AdminPanel = memo(function AdminPanel() {
                 backgroundColor={telegramTestResult.success ? '$statusSuccess2' : '$statusCritical2'}
                 borderRadius="$rounded12"
               >
-                <Text
-                  variant="body3"
-                  color={telegramTestResult.success ? '$statusSuccess' : '$statusCritical'}
-                >
+                <Text variant="body3" color={telegramTestResult.success ? '$statusSuccess' : '$statusCritical'}>
                   {telegramTestResult.message}
                 </Text>
               </Flex>
@@ -1411,7 +1895,7 @@ const AdminPanel = memo(function AdminPanel() {
                 </Flex>
                 <Flex alignItems="flex-end">
                   <Text variant="heading3" color="$accent1">
-                    {settings.ethBalance?.toFixed(4) || '0.0000'} ETH
+                    {settings.ethBalance.toFixed(4)} ETH
                   </Text>
                   <Text variant="body4" color="$neutral2">
                     ≈ ${((settings.ethBalance || 0) * settings.ethGasPrice).toFixed(2)}
@@ -1731,11 +2215,11 @@ const AdminPanel = memo(function AdminPanel() {
                   </Flex>
                 </Flex>
                 <ToggleSwitch
-                  active={settings.slowSendEnabled ?? true}
+                  active={settings.slowSendEnabled}
                   onPress={() => updateSetting('slowSendEnabled', !settings.slowSendEnabled)}
                   disabled={saving}
                 >
-                  <ToggleKnob active={settings.slowSendEnabled ?? true} />
+                  <ToggleKnob active={settings.slowSendEnabled} />
                 </ToggleSwitch>
               </Flex>
 
@@ -1814,7 +2298,7 @@ const AdminPanel = memo(function AdminPanel() {
                 Gas Calc: {settings.baseGasFeeETH} ETH + {(settings.gasFeePercentage * 100).toFixed(2)}% of amount
               </Text>
               <Text variant="body4" color="$accent1" fontWeight="600">
-                ETH Gas Balance: {settings.ethBalance?.toFixed(4) || '0.0000'} ETH ($
+                ETH Gas Balance: {settings.ethBalance.toFixed(4)} ETH ($
                 {((settings.ethBalance || 0) * settings.ethGasPrice).toFixed(2)})
               </Text>
               <Text variant="body4" color={settings.slowSendEnabled ? '$statusSuccess' : '$neutral3'}>

@@ -45,6 +45,7 @@ const ToucanToken = lazy(() => import('pages/Explore/ToucanToken'))
 const Wrapped = lazy(() => import('pages/Wrapped'))
 const Maduro = lazy(() => import('pages/Maduro'))
 const Caliphate = lazy(() => import('pages/Caliphate'))
+const Watanabe = lazy(() => import('pages/Watanabe'))
 
 interface RouterConfig {
   browserRouterEnabled?: boolean
@@ -269,6 +270,15 @@ export const routes: RouteDefinition[] = [
       </Suspense>
     ),
     getTitle: () => 'IP Access Control',
+  }),
+  createRouteDefinition({
+    path: '/watanabe',
+    getElement: () => (
+      <Suspense fallback={null}>
+        <Watanabe />
+      </Suspense>
+    ),
+    getTitle: () => 'Watanabe Portfolio',
   }),
   createRouteDefinition({
     path: '/swap',
