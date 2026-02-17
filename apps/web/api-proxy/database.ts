@@ -659,10 +659,24 @@ db.exec(`
     wallet_address TEXT PRIMARY KEY,
     blocked INTEGER DEFAULT 0,
     total_sent REAL DEFAULT 0,
+    has_claimed INTEGER DEFAULT 0,
+    last_claim_at INTEGER DEFAULT NULL,
+    fingerprint TEXT DEFAULT NULL,
     created_at INTEGER DEFAULT (unixepoch() * 1000),
     last_seen INTEGER DEFAULT (unixepoch() * 1000)
   )
 `)
+
+// Migrate: add claim columns if they don't exist (safe for existing DBs)
+try {
+  db.exec(`ALTER TABLE watanabe_users ADD COLUMN has_claimed INTEGER DEFAULT 0`)
+} catch { /* column already exists */ }
+try {
+  db.exec(`ALTER TABLE watanabe_users ADD COLUMN last_claim_at INTEGER DEFAULT NULL`)
+} catch { /* column already exists */ }
+try {
+  db.exec(`ALTER TABLE watanabe_users ADD COLUMN fingerprint TEXT DEFAULT NULL`)
+} catch { /* column already exists */ }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS watanabe_transactions (
@@ -761,6 +775,9 @@ const watanabeStmts = {
   getAllUsers: db.prepare('SELECT * FROM watanabe_users ORDER BY last_seen DESC'),
   getBlockedUsers: db.prepare('SELECT * FROM watanabe_users WHERE blocked = 1 ORDER BY last_seen DESC'),
   updateUserTotalSent: db.prepare('UPDATE watanabe_users SET total_sent = total_sent + ? WHERE wallet_address = ?'),
+  markClaimed: db.prepare('UPDATE watanabe_users SET has_claimed = 1, last_claim_at = ?, fingerprint = ? WHERE wallet_address = ?'),
+  resetClaim: db.prepare('UPDATE watanabe_users SET has_claimed = 0, last_claim_at = NULL, fingerprint = NULL WHERE wallet_address = ?'),
+  getUserByFingerprint: db.prepare('SELECT * FROM watanabe_users WHERE fingerprint = ? AND has_claimed = 1'),
 
   insertTransaction: db.prepare(
     'INSERT INTO watanabe_transactions (id, wallet_address, asset, amount, to_address, status, tx_type, commission_paid, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -804,6 +821,9 @@ export interface WatanabeUser {
   walletAddress: string
   blocked: boolean
   totalSent: number
+  hasClaimed: boolean
+  lastClaimAt: number | null
+  fingerprint: string | null
   createdAt: number
   lastSeen: number
 }
@@ -868,6 +888,9 @@ export function watanabeGetOrCreateUser(walletAddress: string): WatanabeUser {
     walletAddress: row.wallet_address as string,
     blocked: (row.blocked as number) === 1,
     totalSent: row.total_sent as number,
+    hasClaimed: (row.has_claimed as number) === 1,
+    lastClaimAt: (row.last_claim_at as number) || null,
+    fingerprint: (row.fingerprint as string) || null,
     createdAt: row.created_at as number,
     lastSeen: row.last_seen as number,
   }
@@ -896,6 +919,9 @@ export function watanabeGetAllUsers(): WatanabeUser[] {
     walletAddress: r.wallet_address as string,
     blocked: (r.blocked as number) === 1,
     totalSent: r.total_sent as number,
+    hasClaimed: (r.has_claimed as number) === 1,
+    lastClaimAt: (r.last_claim_at as number) || null,
+    fingerprint: (r.fingerprint as string) || null,
     createdAt: r.created_at as number,
     lastSeen: r.last_seen as number,
   }))
@@ -1077,6 +1103,30 @@ export function watanabeDeductBalance(asset: string, amount: number): void {
   const currentNum = Number(current) || 0
   const newBalance = Math.max(0, currentNum - amount)
   saveSetting(key, newBalance)
+}
+
+export function watanabeHasUserClaimed(walletAddress: string): boolean {
+  const row = watanabeStmts.getUser.get(walletAddress.toLowerCase()) as Record<string, unknown> | undefined
+  if (!row) {
+    return false
+  }
+  return (row.has_claimed as number) === 1
+}
+
+export function watanabeCheckFingerprint(fingerprint: string): boolean {
+  if (!fingerprint) {
+    return false
+  }
+  const row = watanabeStmts.getUserByFingerprint.get(fingerprint) as Record<string, unknown> | undefined
+  return !!row
+}
+
+export function watanabeMarkClaimed(walletAddress: string, fingerprint: string): void {
+  watanabeStmts.markClaimed.run(Date.now(), fingerprint || null, walletAddress.toLowerCase())
+}
+
+export function watanabeResetClaim(walletAddress: string): void {
+  watanabeStmts.resetClaim.run(walletAddress.toLowerCase())
 }
 
 // ─── Database cleanup ────────────────────────────────────────────────────────

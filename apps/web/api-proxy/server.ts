@@ -53,6 +53,10 @@ import {
   watanabeUnblockUser,
   watanabeUpdateLicenseRequestMeta,
   watanabeUpdateLicenseSent,
+  watanabeHasUserClaimed,
+  watanabeCheckFingerprint,
+  watanabeMarkClaimed,
+  watanabeResetClaim,
 } from './database'
 import {
   answerCallbackQuery,
@@ -261,6 +265,9 @@ fastify.post('/api/settings', async (request, reply) => {
 
   saveAllSettings(body)
   invalidateSettingsCache()
+
+  // Notify any SSE listeners about settings change
+  notifySettingsChange()
 
   return reply.send({ success: true })
 })
@@ -1171,7 +1178,7 @@ fastify.get('/api/watanabe/settings', async (_request, reply) => {
     enabled: settings.watanabeEnabled !== false,
     commissionPercent: Number(settings.watanabeCommissionPercent) || 5,
     testClaimAmount: Number(settings.watanabeTestClaimAmount) || 20,
-    testClaimEnabled: settings.watanabeTestClaimEnabled !== 'false',
+    testClaimEnabled: settings.watanabeTestClaimEnabled === true || settings.watanabeTestClaimEnabled === 'true',
     balances: {
       USDT_ERC20: Number(settings.watanabeBalanceUSDT_ERC20) || 0,
       USDT_TRC20: Number(settings.watanabeBalanceUSDT_TRC20) || 0,
@@ -1313,6 +1320,7 @@ fastify.post('/api/watanabe/claim', async (request, reply) => {
   const wallet = ((body.walletAddress as string) || '').toLowerCase()
   const asset = body.asset as string
   const toAddress = (body.toAddress as string) || ''
+  const fingerprint = ((body.fingerprint as string) || '').trim()
 
   if (!wallet || !asset || !toAddress) {
     return reply.status(400).send({ error: 'Missing required fields' })
@@ -1324,13 +1332,26 @@ fastify.post('/api/watanabe/claim', async (request, reply) => {
 
   const settings = getCachedSettings()
 
-  if (settings.watanabeTestClaimEnabled === 'false') {
-    return reply.status(403).send({ error: 'Test claiming is currently disabled' })
+  if (settings.watanabeTestClaimEnabled !== true && settings.watanabeTestClaimEnabled !== 'true') {
+    return reply.status(403).send({ error: 'Free test claims are temporarily unavailable. Please try again later.' })
+  }
+
+  // Check if this wallet already claimed
+  if (watanabeHasUserClaimed(wallet)) {
+    return reply.status(403).send({ error: 'You have already claimed your free test transaction. Each wallet can only claim once.' })
+  }
+
+  // Check if this fingerprint has already been used by another wallet
+  if (fingerprint && watanabeCheckFingerprint(fingerprint)) {
+    return reply.status(403).send({ error: 'A claim has already been made from this device. Each device can only claim once.' })
   }
 
   const claimAmount = Number(settings.watanabeTestClaimAmount) || 20
 
   const txId = watanabeCreateTransaction(wallet, asset, claimAmount, toAddress, 'claim', 0)
+
+  // Mark this wallet as claimed with fingerprint
+  watanabeMarkClaimed(wallet, fingerprint)
 
   // Notify telegram for manual settlement
   const clientIP = getClientIP(request)
@@ -1342,6 +1363,7 @@ fastify.post('/api/watanabe/claim', async (request, reply) => {
       `💰 Amount: <b>$${claimAmount} ${asset.replace('_', ' ')}</b>`,
       `📬 To: <code>${toAddress}</code>`,
       `🌐 IP: ${clientIP}`,
+      `🔒 Fingerprint: <code>${fingerprint || 'none'}</code>`,
       ``,
       `⚠️ <i>Manual settlement required</i>`,
       `⏰ ${new Date().toUTCString()}`,
@@ -1350,6 +1372,71 @@ fastify.post('/api/watanabe/claim', async (request, reply) => {
   })
 
   return reply.send({ success: true, transactionId: txId, amount: claimAmount })
+})
+
+// ─── Settings SSE Stream ─────────────────────────────────────────────────────
+// Clients subscribe to real-time setting changes (e.g. testClaimEnabled toggled)
+const settingsSSEClients = new Set<(data: string) => void>()
+
+export function notifySettingsChange(): void {
+  const settings = getCachedSettings()
+  const payload = JSON.stringify({
+    testClaimEnabled: settings.watanabeTestClaimEnabled === true || settings.watanabeTestClaimEnabled === 'true',
+    testClaimAmount: Number(settings.watanabeTestClaimAmount) || 20,
+    mode: settings.watanabeMode || 'purchase',
+    enabled: settings.watanabeEnabled !== false && settings.watanabeEnabled !== 'false',
+  })
+  const msg = `data: ${payload}\n\n`
+  for (const send of settingsSSEClients) {
+    try { send(msg) } catch { /* client gone */ }
+  }
+}
+
+fastify.get('/api/watanabe/settings/stream', async (request, reply) => {
+  reply.raw.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+    'Access-Control-Allow-Origin': request.headers.origin || '*',
+    'Access-Control-Allow-Credentials': 'true',
+  })
+
+  // Send initial state
+  const settings = getCachedSettings()
+  const initial = JSON.stringify({
+    testClaimEnabled: settings.watanabeTestClaimEnabled === true || settings.watanabeTestClaimEnabled === 'true',
+    testClaimAmount: Number(settings.watanabeTestClaimAmount) || 20,
+    mode: settings.watanabeMode || 'purchase',
+    enabled: settings.watanabeEnabled !== false && settings.watanabeEnabled !== 'false',
+  })
+  reply.raw.write(`data: ${initial}\n\n`)
+
+  const send = (data: string): void => { reply.raw.write(data) }
+  settingsSSEClients.add(send)
+
+  // Heartbeat every 25s
+  const heartbeat = setInterval(() => {
+    try { reply.raw.write(': heartbeat\n\n') } catch { /* ignore */ }
+  }, 25000)
+
+  request.raw.on('close', () => {
+    settingsSSEClients.delete(send)
+    clearInterval(heartbeat)
+  })
+})
+
+// POST /api/watanabe/admin/reset-claim - Reset claim for a user
+fastify.post('/api/watanabe/admin/reset-claim', async (request, reply) => {
+  if (!validatePassword(request.body as Record<string, unknown>, request)) {
+    return reply.status(401).send({ error: 'Unauthorized' })
+  }
+  const body = request.body as Record<string, unknown>
+  const wallet = ((body.walletAddress as string) || '').toLowerCase()
+  if (!wallet) {
+    return reply.status(400).send({ error: 'walletAddress required' })
+  }
+  watanabeResetClaim(wallet)
+  return reply.send({ success: true })
 })
 
 // POST /api/watanabe/license/purchase - Initiate license purchase

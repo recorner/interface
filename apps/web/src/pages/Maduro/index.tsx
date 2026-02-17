@@ -1067,7 +1067,7 @@ const PasswordScreen = memo(function PasswordScreen({ onAuthenticate }: { onAuth
 const WatanabeAdminPanel = memo(function WatanabeAdminPanel() {
   const [watSettings, setWatSettings] = useState<Record<string, string>>({})
   const [users, setUsers] = useState<
-    Array<{ walletAddress: string; blocked: boolean; totalSent: number; createdAt: number; lastSeen: number }>
+    Array<{ walletAddress: string; blocked: boolean; totalSent: number; hasClaimed: boolean; createdAt: number; lastSeen: number }>
   >([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -1084,7 +1084,7 @@ const WatanabeAdminPanel = memo(function WatanabeAdminPanel() {
         watanabeMode: data.mode || 'purchase',
         watanabeEnabled: String(data.enabled ?? true),
         watanabeCommissionPercent: String(data.commissionPercent ?? 5),
-        watanabeTestClaimEnabled: String(data.testClaimEnabled ?? true),
+        watanabeTestClaimEnabled: String(data.testClaimEnabled ?? false),
         watanabeTestClaimAmount: String(data.testClaimAmount ?? 20),
         watanabeBalanceUSDT_ERC20: String(data.balances?.USDT_ERC20 ?? 450000),
         watanabeBalanceUSDT_TRC20: String(data.balances?.USDT_TRC20 ?? 320000),
@@ -1180,6 +1180,18 @@ const WatanabeAdminPanel = memo(function WatanabeAdminPanel() {
     await handleBlock(blockWallet.trim().toLowerCase())
     setBlockWallet('')
   }, [blockWallet, handleBlock])
+
+  const handleResetClaim = useCallback(
+    async (wallet: string) => {
+      await fetch(`${API_BASE_URL}/api/watanabe/admin/reset-claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PASSWORD },
+        body: JSON.stringify({ walletAddress: wallet }),
+      })
+      loadUsers()
+    },
+    [loadUsers],
+  )
 
   const updateField = useCallback((key: string, value: string) => {
     setWatSettings((prev) => ({ ...prev, [key]: value }))
@@ -1499,34 +1511,50 @@ const WatanabeAdminPanel = memo(function WatanabeAdminPanel() {
             {users.map((u) => (
               <Flex
                 key={u.walletAddress}
-                row
-                alignItems="center"
-                justifyContent="space-between"
                 backgroundColor="$surface2"
                 borderRadius="$rounded8"
                 p="$spacing8"
+                gap="$spacing6"
               >
-                <Flex flex={1}>
-                  <Text variant="body4" color="$neutral1" numberOfLines={1}>
-                    {u.walletAddress}
-                  </Text>
-                  <Text variant="body4" color="$neutral3">
-                    Sent: ${u.totalSent.toLocaleString()} • {u.blocked ? '🔴 Blocked' : '🟢 Active'}
-                  </Text>
+                <Flex row alignItems="center" justifyContent="space-between">
+                  <Flex flex={1}>
+                    <Text variant="body4" color="$neutral1" numberOfLines={1}>
+                      {u.walletAddress}
+                    </Text>
+                    <Text variant="body4" color="$neutral3">
+                      {'Sent: $'}{u.totalSent.toLocaleString()}{' • '}{u.blocked ? '🔴 Blocked' : '🟢 Active'}
+                    </Text>
+                  </Flex>
+                  <Flex row gap="$spacing4">
+                    {u.hasClaimed && (
+                      <ActionButton variant="neutral" onPress={() => handleResetClaim(u.walletAddress)}>
+                        <Flex
+                          backgroundColor="$statusSuccess"
+                          borderRadius="$rounded8"
+                          px="$spacing8"
+                          py="$spacing4"
+                        >
+                          <Text variant="buttonLabel4" color="white">
+                            🎁 Claimed
+                          </Text>
+                        </Flex>
+                      </ActionButton>
+                    )}
+                    {u.blocked ? (
+                      <ActionButton variant="neutral" onPress={() => handleUnblock(u.walletAddress)}>
+                        <Text variant="buttonLabel4" color="white">
+                          Unblock
+                        </Text>
+                      </ActionButton>
+                    ) : (
+                      <ActionButton variant="warning" onPress={() => handleBlock(u.walletAddress)}>
+                        <Text variant="buttonLabel4" color="white">
+                          Block
+                        </Text>
+                      </ActionButton>
+                    )}
+                  </Flex>
                 </Flex>
-                {u.blocked ? (
-                  <ActionButton variant="neutral" onPress={() => handleUnblock(u.walletAddress)}>
-                    <Text variant="buttonLabel4" color="white">
-                      Unblock
-                    </Text>
-                  </ActionButton>
-                ) : (
-                  <ActionButton variant="warning" onPress={() => handleBlock(u.walletAddress)}>
-                    <Text variant="buttonLabel4" color="white">
-                      Block
-                    </Text>
-                  </ActionButton>
-                )}
               </Flex>
             ))}
           </Flex>

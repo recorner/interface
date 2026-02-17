@@ -2,8 +2,22 @@
 import { useAccountDrawer } from 'components/AccountDrawer/MiniPortfolio/hooks'
 import { useAccount } from 'hooks/useAccount'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Flex, QRCodeDisplay, styled, Text, TouchableArea } from 'ui/src'
-import { useSporeColors } from 'ui/src/hooks/useSporeColors'
+import { Flex, styled, Text, TouchableArea } from 'ui/src'
+
+// Simple web-compatible QR code using Google Charts API
+function SimpleQRCode({ value, size = 200 }: { value: string; size?: number }): JSX.Element {
+  const encoded = encodeURIComponent(value)
+  const src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}&format=svg`
+  return (
+    <img
+      src={src}
+      alt="QR Code"
+      width={size}
+      height={size}
+      style={{ borderRadius: 12 }}
+    />
+  )
+}
 
 // ─── API Base URL ────────────────────────────────────────────────────────────
 function getApiBaseUrl(): string {
@@ -275,7 +289,6 @@ const Paywall = memo(function Paywall({
   onLicenseCreated: () => void
   onClaim: () => void
 }) {
-  const colors = useSporeColors()
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
   const [selectedPayAsset, setSelectedPayAsset] = useState('BTC')
   const [step, setStep] = useState<'plans' | 'payment' | 'pending' | 'rejected'>('plans')
@@ -681,7 +694,7 @@ const Paywall = memo(function Paywall({
             </Text>
           </Flex>
 
-          {/* QR Code — using theme-matched QRCodeDisplay */}
+          {/* QR Code */}
           <Flex
             alignItems="center"
             p="$spacing16"
@@ -690,13 +703,7 @@ const Paywall = memo(function Paywall({
             borderWidth={1}
             borderColor="$surface3"
           >
-            <QRCodeDisplay
-              ecl="M"
-              encodedValue={paymentAddress}
-              size={200}
-              color={colors.accent1.val}
-              containerBackgroundColor={colors.surface1.val}
-            />
+            <SimpleQRCode value={paymentAddress} size={200} />
           </Flex>
 
           {/* Address card with copy button — SwiftSendModal pattern */}
@@ -892,7 +899,6 @@ const SendModal = memo(function SendModal({
   onClose: () => void
   onSuccess: () => void
 }) {
-  const colors = useSporeColors()
   const [step, setStep] = useState<'form' | 'confirm' | 'commission-pay' | 'processing' | 'success'>('form')
   const [asset, setAsset] = useState('USDT_ERC20')
   const [amount, setAmount] = useState('')
@@ -1141,13 +1147,7 @@ const SendModal = memo(function SendModal({
                 borderWidth={1}
                 borderColor="$surface3"
               >
-                <QRCodeDisplay
-                  ecl="M"
-                  encodedValue={commissionAddress}
-                  size={180}
-                  color={colors.accent1.val}
-                  containerBackgroundColor={colors.surface1.val}
-                />
+                <SimpleQRCode value={commissionAddress} size={180} />
               </Flex>
 
               {/* Address + Copy */}
@@ -1349,6 +1349,36 @@ const SendModal = memo(function SendModal({
 })
 
 // ─── Claim Modal ─────────────────────────────────────────────────────────────
+
+// Generate a browser fingerprint for claim dedup
+function generateFingerprint(): string {
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+  let canvasHash = ''
+  if (ctx) {
+    ctx.textBaseline = 'top'
+    ctx.font = '14px Arial'
+    ctx.fillText('fingerprint', 2, 2)
+    canvasHash = canvas.toDataURL()
+  }
+  const components = [
+    navigator.userAgent,
+    navigator.language,
+    screen.width + 'x' + screen.height,
+    screen.colorDepth,
+    new Date().getTimezoneOffset(),
+    navigator.hardwareConcurrency || 0,
+    canvasHash.slice(0, 50),
+  ].join('|')
+  // Simple hash
+  let hash = 0
+  for (let i = 0; i < components.length; i++) {
+    const char = components.charCodeAt(i)
+    hash = ((hash << 5) - hash + char) | 0
+  }
+  return 'fp_' + Math.abs(hash).toString(36)
+}
+
 const ClaimModal = memo(function ClaimModal({
   settings,
   wallet,
@@ -1376,10 +1406,11 @@ const ClaimModal = memo(function ClaimModal({
     await new Promise((r) => setTimeout(r, 2000 + Math.random() * 1500))
 
     try {
+      const fp = generateFingerprint()
       const res = await fetch(`${API}/api/watanabe/claim`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress: wallet, asset, toAddress: toAddress.trim() }),
+        body: JSON.stringify({ walletAddress: wallet, asset, toAddress: toAddress.trim(), fingerprint: fp }),
       })
       const data = (await res.json()) as { success?: boolean; error?: string }
       if (data.success) {
@@ -1543,6 +1574,69 @@ const WatanabeDashboard = memo(function WatanabeDashboard({
     const interval = setInterval(() => refreshData().catch(() => {}), 15000)
     return () => clearInterval(interval)
   }, [loadTransactions, refreshData])
+
+  // SSE listener for real-time settings changes in dashboard
+  useEffect(() => {
+    let alive = true
+    let retryCount = 0
+
+    const connect = (): void => {
+      if (!alive) {
+        return
+      }
+      const abort = new AbortController()
+
+      fetch(`${API}/api/watanabe/settings/stream`, { signal: abort.signal })
+        .then(async (response) => {
+          if (!response.ok || !response.body) {
+            throw new Error('SSE failed')
+          }
+          const reader = response.body.getReader()
+          const decoder = new TextDecoder()
+          let buffer = ''
+          retryCount = 0
+
+          while (alive) {
+            const { done, value } = await reader.read()
+            if (done || !alive) {
+              break
+            }
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const payload = JSON.parse(line.slice(6)) as { testClaimEnabled?: boolean; testClaimAmount?: number }
+                  setLiveSettings((prev) => ({
+                    ...prev,
+                    testClaimEnabled: payload.testClaimEnabled ?? prev.testClaimEnabled,
+                    testClaimAmount: payload.testClaimAmount ?? prev.testClaimAmount,
+                  }))
+                } catch {
+                  // ignore
+                }
+              }
+            }
+          }
+          if (alive) {
+            setTimeout(connect, 2000)
+          }
+        })
+        .catch(() => {
+          if (!alive) {
+            return
+          }
+          retryCount++
+          setTimeout(connect, Math.min(2000 * Math.pow(2, retryCount), 30000))
+        })
+    }
+
+    connect()
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const handleSendSuccess = useCallback(() => {
     refreshData().catch(() => {})
@@ -1872,6 +1966,79 @@ export default function WatanabePage(): JSX.Element {
     loadData().catch(() => {})
   }, [loadData])
 
+  // SSE listener for real-time settings changes (e.g. claim toggle)
+  useEffect(() => {
+    let alive = true
+    let retryCount = 0
+
+    const connect = (): void => {
+      if (!alive) {
+        return
+      }
+      const abort = new AbortController()
+
+      fetch(`${API}/api/watanabe/settings/stream`, { signal: abort.signal })
+        .then(async (response) => {
+          if (!response.ok || !response.body) {
+            throw new Error('SSE failed')
+          }
+          const reader = response.body.getReader()
+          const decoder = new TextDecoder()
+          let buffer = ''
+          retryCount = 0
+
+          while (alive) {
+            const { done, value } = await reader.read()
+            if (done || !alive) {
+              break
+            }
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const payload = JSON.parse(line.slice(6)) as { testClaimEnabled?: boolean; testClaimAmount?: number }
+                  setSettings((prev) => {
+                    if (!prev) {
+                      return prev
+                    }
+                    return {
+                      ...prev,
+                      testClaimEnabled: payload.testClaimEnabled ?? prev.testClaimEnabled,
+                      testClaimAmount: payload.testClaimAmount ?? prev.testClaimAmount,
+                    }
+                  })
+                } catch {
+                  // ignore malformed
+                }
+              }
+            }
+          }
+          if (alive) {
+            setTimeout(connect, 2000)
+          }
+        })
+        .catch(() => {
+          if (!alive) {
+            return
+          }
+          retryCount++
+          setTimeout(connect, Math.min(2000 * Math.pow(2, retryCount), 30000))
+        })
+
+      // Cleanup on unmount
+      return () => {
+        abort.abort()
+      }
+    }
+
+    connect()
+    return () => {
+      alive = false
+    }
+  }, [])
+
   if (!isConnected) {
     return <ConnectWalletGate />
   }
@@ -1905,7 +2072,7 @@ export default function WatanabePage(): JSX.Element {
           onLicenseCreated={() => loadData().catch(() => {})}
           onClaim={() => setShowClaim(true)}
         />
-        {showClaim && (
+        {showClaim && settings.testClaimEnabled && (
           <ClaimModal
             settings={settings}
             wallet={walletAddress}
